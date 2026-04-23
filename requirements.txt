@@ -1,0 +1,10 @@
+# Streamlit Community Cloud reads this file. Keep it minimal — only what the
+# *dashboard* needs at request time. The pipeline (Fink ingest, find_orb,
+# heliolinc3d) runs in GitHub Actions, not here, so its heavy deps are absent.
+#
+# Local dashboard dev: prefer `pip install -e ".[dashboard]"` from pyproject.toml.
+# This file exists for Streamlit Cloud's installer, which does not auto-resolve
+# pyproject extras.
+streamlit>=1.33
+numpy>=1.26
+requests>=2.31    # used by lib/db.py to rehydrate live.sqlite from the data branch

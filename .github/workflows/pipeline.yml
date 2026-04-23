@@ -1,0 +1,280 @@
+# Cloud-hosted Rubin Anomaly Hunter pipeline (ADR-0017).
+#
+# Runs the live Fink-Kafka ingest + linking + orbit-fit + scoring on a
+# GitHub-hosted Ubuntu runner every 4 hours, then commits the resulting
+# data/live.sqlite + Parquet archive to the orphan `data` branch where
+# the Streamlit Cloud dashboard rehydrates from.
+#
+# Invariants honoured:
+#   - ADR-0008: find_orb is built from upstream source per-job, cached
+#     inside the runner's per-repo cache, and never committed back to
+#     the repo or uploaded as an artifact.
+#   - ADR-0009: raw alert payloads persist verbatim to data/archive/
+#     before any filtering. The archive is committed to the data branch.
+#   - ADR-0016: Fink Kafka is the default ingest. Falls back to Lasair
+#     only if RUBIN_HUNTER_INGEST repo variable is set to "lasair".
+#
+# Setup checklist (one-time, by the operator):
+#   1. Push this repo to GitHub.
+#   2. Settings → Secrets and variables → Actions → New repository secret:
+#      Name:  FINK_CLIENT_YAML
+#      Value: paste the entire contents of your fink-client credentials.yml
+#   3. (optional) Repository variable RUBIN_HUNTER_INGEST = "lasair" plus
+#      secret LASAIR_TOKEN if you want to fall back from Fink.
+#   4. Settings → Actions → General → Workflow permissions:
+#      "Read and write permissions" (so the workflow can push the data
+#      branch). The workflow uses the built-in GITHUB_TOKEN.
+#   5. First run: Actions tab → "live-pipeline" → Run workflow.
+
+name: live-pipeline
+
+on:
+  schedule:
+    # Every 4 hours, on the hour. ~6 runs/day → ≈10 min each → well inside
+    # the 2,000 min/mo free tier on private repos.
+    - cron: "0 */4 * * *"
+  workflow_dispatch:
+    inputs:
+      since_days:
+        description: "Lookback window in days for this run"
+        required: false
+        default: "1"
+      max_messages:
+        description: "Max Fink alerts to consume in this run"
+        required: false
+        default: "200"
+
+# Only one pipeline run at a time. The data-branch push needs serialisation.
+concurrency:
+  group: live-pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # required to push the `data` branch
+
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    env:
+      # Where Bill Gray's stack lands inside the runner. Cached between runs.
+      SRC_ROOT: ${{ github.workspace }}/.findorb-src
+      # Pin upstream commits via cache key so a find_orb update busts the cache.
+      # We resolve `git ls-remote ... HEAD` at runtime to get a real SHA.
+      INGEST_MODE: ${{ vars.RUBIN_HUNTER_INGEST || 'fink' }}
+
+    steps:
+      # 1 — Checkout main (the code).
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # 2 — Python 3.11 (matches pyproject requires-python).
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # 3 — System libs needed for Bill Gray's stack and confluent-kafka.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential gcc g++ make cmake git \
+            libcurl4-openssl-dev \
+            libssl-dev libsasl2-dev \
+            librdkafka-dev \
+            libeigen3-dev \
+            pkg-config
+
+      # 4 — Resolve upstream commits so the cache key reflects what we'd build.
+      - name: Resolve find_orb upstream commits
+        id: fo_versions
+        run: |
+          set -euo pipefail
+          lunar_sha=$(git ls-remote https://github.com/Bill-Gray/lunar HEAD | awk '{print $1}')
+          jpl_sha=$(git ls-remote https://github.com/Bill-Gray/jpl_eph HEAD | awk '{print $1}')
+          sat_sha=$(git ls-remote https://github.com/Bill-Gray/sat_code HEAD | awk '{print $1}')
+          fo_sha=$(git ls-remote https://github.com/Bill-Gray/find_orb HEAD | awk '{print $1}')
+          combined="${lunar_sha:0:12}-${jpl_sha:0:12}-${sat_sha:0:12}-${fo_sha:0:12}"
+          echo "combined=$combined" >> "$GITHUB_OUTPUT"
+          echo "find_orb stack: $combined"
+
+      # 5 — Cache the built binaries + /usr/local install tree. Restore on hit;
+      #     rebuild on miss.
+      - name: Cache find_orb stack
+        id: fo_cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.SRC_ROOT }}
+            /usr/local/bin/fo
+            /usr/local/include/lunar.h
+            /usr/local/include/jpleph.h
+            /usr/local/lib/liblunar.a
+            /usr/local/lib/libjpl.a
+            /usr/local/lib/libsatell.a
+          key: findorb-stack-${{ runner.os }}-${{ steps.fo_versions.outputs.combined }}
+          restore-keys: |
+            findorb-stack-${{ runner.os }}-
+
+      # 6 — Build the stack if the cache missed. Mirrors scripts/wsl/bootstrap.sh.
+      #     Order matters: lunar → jpl_eph → sat_code → find_orb.
+      - name: Build find_orb stack (cache miss)
+        if: steps.fo_cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$SRC_ROOT"
+          build_lib() {
+            local name="$1" url="$2" target="${3:-all}"
+            local dir="$SRC_ROOT/$name"
+            git clone --depth 1 "$url" "$dir"
+            make -C "$dir" "$target" -j"$(nproc)"
+            sudo make -C "$dir" install
+          }
+          build_lib lunar    https://github.com/Bill-Gray/lunar    lunar
+          build_lib jpl_eph  https://github.com/Bill-Gray/jpl_eph  all
+          build_lib sat_code https://github.com/Bill-Gray/sat_code all
+          # find_orb itself: build, then symlink fo into /usr/local/bin so
+          # the cache covers it without a sudo install step.
+          fo_dir="$SRC_ROOT/find_orb"
+          git clone --depth 1 https://github.com/Bill-Gray/find_orb "$fo_dir"
+          make -C "$fo_dir" -j"$(nproc)"
+          sudo install -m 0755 "$fo_dir/fo" /usr/local/bin/fo
+          /usr/local/bin/fo -h >/dev/null 2>&1 || true
+          echo "find_orb built."
+
+      # 7 — Project install. Editable + ingest extra so fink-client lands.
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install -e ".[ingest,dashboard]"
+
+      # 8 — Materialise the Fink credentials YAML from the secret.
+      #     Never echoed; permissions tightened. fink-client's default search
+      #     order picks ~/.finkclient/credentials.yml automatically.
+      - name: Write Fink credentials
+        if: env.INGEST_MODE == 'fink'
+        env:
+          FINK_CLIENT_YAML: ${{ secrets.FINK_CLIENT_YAML }}
+        run: |
+          set -euo pipefail
+          if [ -z "${FINK_CLIENT_YAML:-}" ]; then
+            echo "::error::FINK_CLIENT_YAML secret is empty. Add it under Settings → Secrets, or set repo variable RUBIN_HUNTER_INGEST=lasair."
+            exit 1
+          fi
+          mkdir -p "$HOME/.finkclient"
+          umask 077
+          printf '%s' "$FINK_CLIENT_YAML" > "$HOME/.finkclient/credentials.yml"
+          chmod 600 "$HOME/.finkclient/credentials.yml"
+          echo "Fink credentials written ($(wc -c < "$HOME/.finkclient/credentials.yml") bytes)."
+
+      # 9 — Bring the previous data branch into ./data so the pipeline appends
+      #     to the existing detection DB instead of starting empty each run.
+      - name: Restore previous live.sqlite from data branch
+        run: |
+          set -euo pipefail
+          mkdir -p data data/archive
+          if git ls-remote --exit-code --heads origin data >/dev/null 2>&1; then
+            git fetch origin data --depth=1
+            # Checkout just the data/ tree from the data branch into the working copy.
+            # We do NOT switch branches — main stays checked out for code.
+            git checkout origin/data -- data/ || echo "data branch has no data/ tree yet (first run)"
+            echo "Restored from data branch:"
+            ls -la data/ data/archive/ 2>/dev/null || true
+          else
+            echo "data branch does not exist yet — first run, starting empty."
+          fi
+
+      # 10 — Run the pipeline. find_orb resolves via PATH; FINDORB_DIR makes
+      #      its scratch dir explicit so we can ignore it in commits.
+      - name: Run pipeline
+        env:
+          FINDORB_PATH: /usr/local/bin/fo
+          FINDORB_DIR: ${{ runner.temp }}/findorb-data
+          RUBIN_HUNTER_INGEST: ${{ env.INGEST_MODE }}
+          LASAIR_TOKEN: ${{ secrets.LASAIR_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$FINDORB_DIR"
+          since_days="${{ github.event.inputs.since_days || '1' }}"
+          max_messages="${{ github.event.inputs.max_messages || '200' }}"
+          python scripts/run_live_pipeline.py \
+            --ingest "$INGEST_MODE" \
+            --since-days "$since_days" \
+            --fink-max-messages "$max_messages" \
+            --fink-timeout-s 60 \
+            --log-level INFO
+
+      # 11 — Push the updated data/ tree to the orphan `data` branch.
+      #      Orphan history (no commit chain) keeps the branch tiny — each push
+      #      replaces the previous tip with a single commit holding the latest
+      #      DB + archive Parquet. Historical SQLite snapshots are not the
+      #      durable record (Parquet under data/archive is, per ADR-0009);
+      #      the archive accumulates because the restore step above brings
+      #      the previous tree forward before the run.
+      - name: Publish state to data branch
+        if: always() && hashFiles('data/live.sqlite') != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Scratch worktree on a unique temp branch (avoids clashing with any
+          # cached refs/heads/data from a prior run). We force-push the temp
+          # branch's commit to refs/heads/data via refspec at the end.
+          worktree="$RUNNER_TEMP/data-publish"
+          temp_branch="data-publish-${GITHUB_RUN_ID}"
+          rm -rf "$worktree"
+          git worktree add --orphan -b "$temp_branch" "$worktree"
+          # Wipe any inherited tracked files from the orphan; keep .git.
+          find "$worktree" -mindepth 1 -maxdepth 1 -not -name '.git' -exec rm -rf {} +
+          # Copy only the data/ tree we want to publish.
+          mkdir -p "$worktree/data"
+          cp -r data/. "$worktree/data/"
+          # A README so the branch is self-explanatory if someone clicks into it.
+          cat > "$worktree/README.md" <<'EOF'
+          # `data` branch
+
+          Auto-generated by `.github/workflows/pipeline.yml`.
+
+          - `data/live.sqlite` — current detection DB consumed by the dashboard
+          - `data/archive/` — verbatim raw alert Parquet (ADR-0009)
+
+          Do not commit here by hand. Force-pushed after every successful
+          pipeline run. Code lives on `main`.
+          EOF
+          cd "$worktree"
+          git config user.name  "rubin-anomaly-hunter[bot]"
+          git config user.email "rubin-anomaly-hunter@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No data changes to publish."
+            exit 0
+          fi
+          run_id="${GITHUB_RUN_ID}"
+          ts="$(date -u +%FT%TZ)"
+          git commit -m "data: pipeline run ${run_id} @ ${ts}"
+          # Force-push the temp branch into refs/heads/data on the remote.
+          git push --force \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "HEAD:refs/heads/data"
+          cd -
+          git worktree remove --force "$worktree"
+          git branch -D "$temp_branch" 2>/dev/null || true
+          echo "Published data branch."
+
+      # 12 — Diagnostics on failure. Never dump the credentials file.
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          set +e
+          echo "=== disk ===";   df -h
+          echo "=== fo ===";     /usr/local/bin/fo -h 2>&1 | head -40
+          echo "=== data ===";   ls -la data/ data/archive/ 2>/dev/null
+          echo "=== health ==="; \
+            python -c "import sqlite3,sys; \
+              c=sqlite3.connect('data/live.sqlite'); \
+              for r in c.execute('SELECT * FROM pipeline_health ORDER BY obs_night DESC LIMIT 5'): print(dict(zip([d[0] for d in c.execute('PRAGMA table_info(pipeline_health)').description],r)))" 2>&1 | head -50
