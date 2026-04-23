@@ -115,7 +115,7 @@ Per **ADR-0017**, the project supports two runtimes. Local WSL2 is documented at
 1. **Push the repo to GitHub** (private is fine for GHA; public is needed for the free Streamlit Cloud tier).
 2. **Add the Fink credentials secret.** Settings → Secrets and variables → Actions → New repository secret:
    - Name: `FINK_CLIENT_YAML`
-   - Value: paste the entire contents of your `fink-client` `credentials.yml` (register at https://fink-broker.readthedocs.io/en/latest/services/livestream/).
+   - Value: paste the entire contents of your `fink-client` `credentials.yml`. To get credentials: submit the Fink subscription form at https://forms.gle/2td4jysT4e9pkf889 (they email back a `username` + `group_id`), then follow https://doc.lsst.fink-broker.org/services/livestream/ to run `fink_client_register` which writes the YAML to `~/.finkclient/credentials.yml`. See https://github.com/astrolabsoftware/fink-client for the CLI.
 3. **Allow workflow writes.** Settings → Actions → General → Workflow permissions → "Read and write permissions". The cron workflow uses the built-in `GITHUB_TOKEN` to push the orphan `data` branch.
 4. **Enable Actions.** Actions tab → "I understand my workflows" if first-time. Run `live-pipeline` once via "Run workflow" to seed the `data` branch (first run takes ~10–15 min building Bill Gray's stack; subsequent runs hit the cache and finish in ~3 min).
 5. **Deploy the dashboard** at https://share.streamlit.io → New app:
