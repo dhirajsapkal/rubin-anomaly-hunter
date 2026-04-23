@@ -129,6 +129,6 @@ pipeline sources to locate binaries + venv.
 - PRD §§4, 6, 13 (milestone M0 definition)
 - ADR-0003 (Rubin primary, ZTF calibration-only)
 - ADR-0005, 0007, 0008, 0009, 0010, 0013
-- Fink LSST docs: https://fink-broker.readthedocs.io
+- Fink LSST docs: https://doc.lsst.fink-broker.org/ (subscription form: https://forms.gle/2td4jysT4e9pkf889; livestream setup: https://doc.lsst.fink-broker.org/services/livestream/; fink-client CLI: https://github.com/astrolabsoftware/fink-client)
 - LSST alert schema: https://github.com/lsst/alert_packet
 - WSL2 bootstrap script: `scripts/wsl/bootstrap.sh`
