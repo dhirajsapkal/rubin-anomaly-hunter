@@ -1,0 +1,698 @@
+/* ============================================================
+   Rubin Anomaly Hunter — theme.css
+   Implementation of docs/ux/design-system.md
+   Dark mode only. Streamlit v1.33+ target.
+   Loaded via:
+     st.markdown(
+       f"<style>{open('dashboard/static/theme.css').read()}</style>",
+       unsafe_allow_html=True,
+     )
+   ============================================================ */
+
+/* ---- 1. Fonts ------------------------------------------------ */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400;9..144,500;9..144,700;9..144,900&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/* ---- 2. Tokens (design-system.md §3, §4) --------------------- */
+:root {
+  /* Background / surface */
+  --bg-deep:            #0B1020;
+  --bg-elevated:        #131A2E;
+  --surface-paper:      #F2E8D5;
+  --surface-card:       #1A2340;
+  --surface-card-hover: #1F2A4D;
+  --divider:            #2A3458;
+  --divider-paper:      #D4C9B0;
+
+  /* Text */
+  --text-primary:       #EDE6D3;
+  --text-secondary:     #A9B1C6;
+  --text-tertiary:      #6D7595;
+  --ink-on-paper:       #1A1A2E;
+  --ink-on-paper-muted: #555770;
+
+  /* Accent (single bright) */
+  --accent-phosphor:      #B9F15D;
+  --accent-phosphor-dim:  #6B8C37;
+
+  /* Decision semantics (four actions) */
+  --decision-accept:   #7FB88F;
+  --decision-defer:    #D9B06C;
+  --decision-reject:   #C26B6B;
+  --decision-promote:  #7BA9D9;
+
+  /* Watch-list kinds */
+  --kind-dark-comet:   #C88BD0;
+  --kind-iso:          #E8A87C;
+
+  /* Pipeline health (reuses decision palette intentionally) */
+  --health-ok:     #7FB88F;
+  --health-warn:   #D9B06C;
+  --health-stale:  #8C95B0;
+  --health-error:  #C26B6B;
+
+  /* Type scale (rem) */
+  --fs-display-xl: 3.25rem;
+  --fs-display-lg: 2.25rem;
+  --fs-display-md: 1.625rem;
+  --fs-body-lg:    1.125rem;
+  --fs-body:       1rem;
+  --fs-body-sm:    0.875rem;
+  --fs-mono:       0.9375rem;
+  --fs-mono-sm:    0.8125rem;
+  --fs-micro:      0.75rem;
+
+  /* Spacing */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  24px;
+  --sp-6:  32px;
+  --sp-7:  48px;
+  --sp-8:  64px;
+
+  /* Radius */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   14px;
+  --radius-pill: 999px;
+
+  /* Motion */
+  --ease-calm: cubic-bezier(0.2, 0.0, 0.0, 1.0);
+  --dur-fast:  80ms;
+  --dur-base:  160ms;
+  --dur-enter: 240ms;
+  --dur-slow:  320ms;
+
+  /* Font stacks */
+  --font-display: 'Fraunces', 'IBM Plex Serif', 'Iowan Old Style', Georgia, serif;
+  --font-body:    'Inter Tight', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:    'JetBrains Mono', 'IBM Plex Mono', 'Space Mono', 'Cascadia Mono', Consolas, monospace;
+}
+
+/* ---- 3. Streamlit container overrides ------------------------ */
+/* Streamlit's default background & font — override at the app level. */
+html, body, [class*="stApp"], [data-testid="stAppViewContainer"] {
+  background-color: var(--bg-deep) !important;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+[data-testid="stHeader"] {
+  background: transparent !important;
+}
+
+/* Noise-texture layer on deep background. Subtle atmosphere, not spectacle. */
+[data-testid="stAppViewContainer"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+  background-repeat: repeat;
+  mix-blend-mode: screen;
+}
+
+/* Left nav rail color */
+[data-testid="stSidebar"] {
+  background-color: var(--bg-elevated) !important;
+  border-right: 1px solid var(--divider);
+}
+
+/* ---- 4. Base type styles ------------------------------------- */
+h1, .h1 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-display-lg);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0 0 var(--sp-4) 0;
+}
+h2, .h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-display-md);
+  line-height: 1.25;
+  color: var(--text-primary);
+  margin: 0 0 var(--sp-3) 0;
+}
+h3, .h3 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--fs-body-lg);
+  color: var(--text-primary);
+  margin: 0 0 var(--sp-3) 0;
+  letter-spacing: 0.01em;
+}
+p, .body {
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  color: var(--text-primary);
+  line-height: 1.55;
+}
+small, .body-sm {
+  font-size: var(--fs-body-sm);
+  color: var(--text-secondary);
+}
+code, pre, .mono, .data {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.mono-sm, .data-sm {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: var(--accent-phosphor);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--dur-base) var(--ease-calm);
+}
+a:hover { border-bottom-color: var(--accent-phosphor); }
+a:focus-visible {
+  outline: 2px solid var(--accent-phosphor);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---- 5. Page header / wordmark ------------------------------- */
+.rh-page-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--sp-6);
+  position: relative;
+}
+.rh-page-header .title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-display-lg);
+  color: var(--text-primary);
+}
+.rh-page-header .title::after {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 2px;
+  margin-top: var(--sp-2);
+  background: var(--accent-phosphor);
+}
+.rh-page-header .meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono-sm);
+  color: var(--text-tertiary);
+  text-align: right;
+  line-height: 1.5;
+}
+.rh-page-header .meta .now { color: var(--text-secondary); }
+
+/* ---- 6. Layout primitives ------------------------------------ */
+.content-wide   { max-width: 1200px; margin-left: auto; margin-right: auto; padding: var(--sp-8) var(--sp-7) var(--sp-7); position: relative; z-index: 1; }
+.content-narrow { max-width: 1040px; margin-left: auto; margin-right: auto; padding: var(--sp-8) var(--sp-7) var(--sp-7); position: relative; z-index: 1; }
+.content-prose  { max-width: 680px;  margin-left: auto; margin-right: auto; }
+
+.row           { display: flex; gap: var(--sp-5); align-items: stretch; }
+.row--tight    { gap: var(--sp-3); }
+.row--wrap     { flex-wrap: wrap; }
+.col           { display: flex; flex-direction: column; gap: var(--sp-4); }
+.col--gap-sm   { gap: var(--sp-2); }
+.col--gap-lg   { gap: var(--sp-6); }
+.spacer-sm     { height: var(--sp-4); }
+.spacer        { height: var(--sp-6); }
+.spacer-lg     { height: var(--sp-7); }
+
+/* ---- 7. Card surfaces (design-system §5.3) ------------------- */
+.card-dark {
+  background: var(--surface-card);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md);
+  padding: var(--sp-5);
+  position: relative;
+  transition: background var(--dur-base) var(--ease-calm),
+              border-left-color var(--dur-base) var(--ease-calm);
+  border-left: 2px solid transparent;
+}
+.card-dark:hover,
+.card-dark.is-focus {
+  background: var(--surface-card-hover);
+  border-left-color: var(--accent-phosphor);
+}
+
+.card-paper {
+  background: var(--surface-paper);
+  color: var(--ink-on-paper);
+  border: 1px solid var(--divider-paper);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55),
+              0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.card-paper h1, .card-paper h2, .card-paper h3,
+.card-paper p, .card-paper .body, .card-paper code, .card-paper pre {
+  color: var(--ink-on-paper);
+}
+.card-paper .body-sm, .card-paper .mono-sm, .card-paper .muted {
+  color: var(--ink-on-paper-muted);
+}
+
+.tile-glass {
+  background: color-mix(in srgb, var(--surface-card) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--divider) 60%, transparent);
+  border-radius: var(--radius-md);
+  padding: var(--sp-5);
+  backdrop-filter: blur(1px);
+}
+
+/* ---- 8. Dividers -------------------------------------------- */
+.divider        { border: 0; border-top: 1px solid var(--divider); margin: var(--sp-5) 0; }
+.divider-paper  { border: 0; border-top: 1px solid var(--divider-paper); margin: var(--sp-5) 0; }
+.divider-phosphor {
+  border: 0; height: 2px; width: 48px; background: var(--accent-phosphor);
+  margin: var(--sp-2) 0 var(--sp-4) 0;
+}
+
+/* ---- 9. Status pills (design-system §6.10) ------------------ */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+}
+.pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+.pill--no-dot::before { display: none; }
+
+/* Kind pills — background at 18% alpha of the hue, text at full hue */
+.pill-kind-dark-comet {
+  color: var(--kind-dark-comet);
+  background: color-mix(in srgb, var(--kind-dark-comet) 18%, transparent);
+}
+.pill-kind-iso {
+  color: var(--kind-iso);
+  background: color-mix(in srgb, var(--kind-iso) 18%, transparent);
+}
+
+/* Candidate (post-promote) pill */
+.pill-candidate {
+  color: var(--decision-promote);
+  background: color-mix(in srgb, var(--decision-promote) 18%, transparent);
+}
+
+/* Health pills */
+.pill-health-ok    { color: var(--health-ok);    background: color-mix(in srgb, var(--health-ok)    18%, transparent); }
+.pill-health-warn  { color: var(--health-warn);  background: color-mix(in srgb, var(--health-warn)  18%, transparent); }
+.pill-health-stale { color: var(--health-stale); background: color-mix(in srgb, var(--health-stale) 18%, transparent); }
+.pill-health-error { color: var(--health-error); background: color-mix(in srgb, var(--health-error) 18%, transparent); }
+
+/* Pill entry animation (toggle .pill-enter when rendering) */
+@keyframes pillEnter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.pill-enter { animation: pillEnter var(--dur-enter) var(--ease-calm) both; }
+
+/* ---- 10. Decision action bar (design-system §6.9) ----------- */
+.decision-bar {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: center;
+  padding-top: var(--sp-5);
+  margin-top: var(--sp-6);
+  border-top: 1px solid var(--divider-paper);
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to top, var(--surface-paper) 80%, transparent);
+}
+
+.btn-decision {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--fs-body-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  height: 44px;
+  padding: 0 var(--sp-5);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: transform var(--dur-fast) var(--ease-calm),
+              background var(--dur-base) var(--ease-calm),
+              color var(--dur-base) var(--ease-calm);
+  color: var(--ink-on-paper);
+}
+.btn-decision:active  { transform: scale(0.98); }
+.btn-decision:focus-visible {
+  outline: 2px solid var(--accent-phosphor);
+  outline-offset: 2px;
+}
+.btn-decision[disabled],
+.btn-decision.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-accept  { background: var(--decision-accept);  border-color: var(--decision-accept); }
+.btn-defer   { background: transparent;             border-color: var(--decision-defer); color: var(--decision-defer); }
+.btn-reject  { background: var(--decision-reject);  border-color: var(--decision-reject); }
+.btn-promote {
+  background: var(--decision-promote);
+  border-color: var(--decision-promote);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--decision-promote) 60%, black);
+  /* Styled wider to discourage mis-click */
+  padding-left: var(--sp-6);
+  padding-right: var(--sp-6);
+}
+
+/* ---- 11. Watch-list row (design-system §6.4) ---------------- */
+.wle-row {
+  display: grid;
+  grid-template-columns: 12px 1fr 180px 140px 120px 120px 80px;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--surface-card);
+  border: 1px solid var(--divider);
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-md);
+  transition: background var(--dur-base) var(--ease-calm),
+              border-left-color var(--dur-base) var(--ease-calm);
+  min-height: 64px;
+}
+.wle-row:hover { background: var(--surface-card-hover); border-left-color: var(--accent-phosphor); }
+.wle-row.is-mpc-match { border-left-color: var(--decision-defer); }
+
+.wle-row .kind-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+}
+.wle-row .kind-dot--dark-comet { background: var(--kind-dark-comet); }
+.wle-row .kind-dot--iso        { background: var(--kind-iso); }
+
+.wle-row .wle-id {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  color: var(--text-primary);
+}
+.wle-row .wle-meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono-sm);
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+/* ---- 12. Monospace data readouts ---------------------------- */
+.data-block {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono-sm);
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+}
+.data-block--paper { color: var(--ink-on-paper); }
+.data-block--dark  { color: var(--text-primary); }
+.data-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.data-label--paper { color: var(--ink-on-paper-muted); }
+
+/* ---- 13. Null-hypothesis test list -------------------------- */
+.nht-list { list-style: none; padding: 0; margin: 0; }
+.nht-list li {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono-sm);
+  color: var(--ink-on-paper);
+  padding: var(--sp-1) 0;
+  display: flex;
+  gap: var(--sp-3);
+  align-items: baseline;
+}
+.nht-mark { width: 14px; display: inline-block; font-weight: 700; }
+.nht-pass    .nht-mark { color: var(--decision-accept); }
+.nht-fail    .nht-mark { color: var(--decision-reject); }
+.nht-warn    .nht-mark { color: var(--decision-defer); }
+.nht-pending .nht-mark { color: var(--ink-on-paper-muted); }
+
+/* ---- 14. Summary tile (Tonight) ----------------------------- */
+.summary-tile {
+  /* composes .tile-glass */
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-height: 140px;
+}
+.summary-tile .label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.summary-tile .value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-display-xl);
+  color: var(--accent-phosphor);
+  line-height: 1;
+}
+.summary-tile .value-underline {
+  width: 24px; height: 2px; background: var(--accent-phosphor);
+}
+.summary-tile.is-zero .value {
+  color: var(--text-secondary);
+}
+.summary-tile.is-zero .value-underline { display: none; }
+.summary-tile .breakdown {
+  font-family: var(--font-body);
+  font-size: var(--fs-body-sm);
+  color: var(--text-secondary);
+}
+
+/* ---- 15. Empty-state card ----------------------------------- */
+.empty-state {
+  text-align: center;
+  padding: var(--sp-8) var(--sp-5);
+  max-width: 680px;
+  margin: var(--sp-8) auto 0;
+  animation: fadeIn var(--dur-slow) var(--ease-calm) both;
+}
+.empty-state .constellation {
+  margin: 0 auto var(--sp-6);
+  opacity: 0.75;
+  color: var(--accent-phosphor-dim);
+  display: block;
+}
+.empty-state .verdict {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-display-lg);
+  color: var(--text-primary);
+  margin-bottom: var(--sp-4);
+}
+.empty-state .counts {
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-2);
+}
+.empty-state .provenance {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono-sm);
+  color: var(--text-tertiary);
+  margin-bottom: var(--sp-6);
+}
+.empty-state .quote {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--fs-body-sm);
+  color: var(--text-secondary);
+  max-width: 52ch;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ---- 16. Pipeline-health sparkline -------------------------- */
+.sparkline-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4) 0;
+}
+.sparkline-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--divider);
+}
+.sparkline-head .metric {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono-sm);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.sparkline-head .value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono-sm);
+  color: var(--text-primary);
+  display: flex;
+  gap: var(--sp-3);
+  align-items: baseline;
+}
+.sparkline-wrap svg { display: block; }
+.sparkline-wrap svg .trace { stroke: var(--accent-phosphor); stroke-width: 1.5; fill: none; }
+.sparkline-wrap svg .threshold { stroke: var(--text-tertiary); stroke-dasharray: 3 3; stroke-width: 1; }
+
+/* ---- 17. Kind badge (small inline) -------------------------- */
+.kind-badge {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.kind-badge--dark-comet {
+  color: var(--kind-dark-comet);
+  background: color-mix(in srgb, var(--kind-dark-comet) 18%, transparent);
+}
+.kind-badge--iso {
+  color: var(--kind-iso);
+  background: color-mix(in srgb, var(--kind-iso) 18%, transparent);
+}
+
+/* ---- 18. Cutout thumbnail ----------------------------------- */
+.cutout {
+  width: 120px;
+  height: 140px;
+  border: 1px solid var(--divider-paper);
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  flex-direction: column;
+  background: #0B0B14;
+  overflow: hidden;
+  transition: transform var(--dur-base) var(--ease-calm);
+  transform-origin: top left;
+}
+.cutout:hover { transform: scale(2); z-index: 10; position: relative; }
+.cutout .img {
+  width: 120px; height: 120px;
+  background-size: cover; background-position: center;
+}
+.cutout .caption {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-on-paper-muted);
+  padding: 4px 6px;
+  background: var(--surface-paper);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- 19. Plot frame (orbit / light curve) ------------------- */
+.plot-frame {
+  border: 1px dashed var(--divider-paper);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-4);
+  position: relative;
+}
+.plot-frame .plot-head {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.04em;
+  color: var(--ink-on-paper-muted);
+  margin-bottom: var(--sp-3);
+}
+.plot-frame .plot-caption {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--ink-on-paper);
+  margin-top: var(--sp-3);
+}
+
+/* ---- 20. Focus + keyboard + reduced motion ------------------ */
+:focus-visible {
+  outline: 2px solid var(--accent-phosphor);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+::selection {
+  background: color-mix(in srgb, var(--accent-phosphor) 35%, transparent);
+  color: var(--text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0ms !important;
+  }
+}
+
+/* ---- 21. Utility classes ------------------------------------ */
+.u-muted         { color: var(--text-tertiary); }
+.u-secondary     { color: var(--text-secondary); }
+.u-accent        { color: var(--accent-phosphor); }
+.u-center        { text-align: center; }
+.u-right         { text-align: right; }
+.u-mono          { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.u-caps          { text-transform: uppercase; letter-spacing: 0.08em; }
+.u-mt-0 { margin-top: 0; }
+.u-mt-4 { margin-top: var(--sp-4); }
+.u-mt-6 { margin-top: var(--sp-6); }
+.u-mt-8 { margin-top: var(--sp-8); }
+.u-mb-0 { margin-bottom: 0; }
+.u-mb-4 { margin-bottom: var(--sp-4); }
+.u-mb-6 { margin-bottom: var(--sp-6); }
+.u-no-wrap { white-space: nowrap; }
+
+/* ---- 22. Print — not a goal, but don't embarrass us --------- */
+@media print {
+  body { background: #fff; color: #000; }
+  .card-paper { box-shadow: none; border-color: #888; }
+  .decision-bar, [data-testid="stSidebar"] { display: none; }
+}
+
+/* End of theme.css */

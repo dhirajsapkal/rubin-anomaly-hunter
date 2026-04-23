@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rubin-hunter"
+version = "0.1.0"
+description = "Personal-scale dark-comet and ISO anomaly hunter over Rubin Observatory public alerts"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary (personal use only)" }
+authors = [{ name = "Dhiraj Sapkal" }]
+dependencies = [
+    "astropy>=6.0",
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "pyarrow>=14",
+    "healpy>=1.17",
+    "fastavro>=1.9",
+    "pydantic>=2.5",
+    "pyyaml>=6.0",
+    "sbpy>=0.4",
+    "scikit-learn>=1.4",
+    "matplotlib>=3.8",
+    "plotly>=5.18",
+]
+
+[project.optional-dependencies]
+ingest = [
+    "fink-client>=10.0",
+    "lasair>=0.0.8",
+    "antares-client>=1.7",
+    "confluent-kafka>=2.3",
+]
+dashboard = [
+    "streamlit>=1.33",
+    "streamlit-extras>=0.4",
+    "pillow>=10.2",
+]
+anomaly = [
+    "coniferest>=0.0.11",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "ruff>=0.3",
+    "mypy>=1.9",
+]
+all = [
+    "rubin-hunter[ingest,dashboard,anomaly,dev]",
+]
+
+[project.scripts]
+rubin-hunter = "rubin_hunter.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "PL"]
+ignore = ["PLR0913", "E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true

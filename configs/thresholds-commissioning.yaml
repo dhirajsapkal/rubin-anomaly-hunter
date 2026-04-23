@@ -1,0 +1,50 @@
+# Commissioning-window thresholds (NOT LOCKED — fluid per ADR-0006)
+#
+# These values are deliberately placeholders that will be tuned against
+# observed Rubin commissioning distributions during the commissioning
+# window. They will be frozen at the threshold-lock date (target
+# 2026-07-01) into configs/thresholds-v1.yaml and git-tagged immutable.
+#
+# DO NOT treat any candidate generated under this config as a discovery.
+
+schema_version: "commissioning"
+locked: false
+lock_target_date: "2026-07-01"
+
+# Common gate — applies to both watch-lists
+common:
+  min_detections_per_tracklet: 5     # N_arc placeholder
+  min_nights_spanned: 3              # T_arc placeholder
+  mpc_match_tolerance_arcsec: 30.0
+  max_streak_flag_fraction: 0.0      # zero tolerance for streak-flagged detections
+  reliability_min: 0.7               # R_min placeholder
+  cross_broker_quorum: 1             # how many brokers must agree
+
+# Dark-comet watch-list (primary, ADR-0004)
+dark_comet:
+  # Marsden non-grav minimum magnitudes
+  A1_min_au_per_day2: 1.0e-9
+  A2_min_au_per_day2: 1.0e-10
+  A3_min_au_per_day2: 1.0e-10
+  max_relative_sigma: 0.5            # sigma(A_k) / |A_k|
+  # Morphology — difference image must be PSF-consistent
+  max_extendedness: 0.2
+  # Orbit must be bound (not hyperbolic)
+  max_eccentricity_upper: 0.95       # e + sigma(e) must be below this
+
+# ISO watch-list (secondary, ADR-0004, ADR-0005)
+iso:
+  min_best_fit_e: 1.0
+  max_sigma_e: 0.5                   # sigma_e_max placeholder
+  min_perihelion_au: 0.1
+  max_perihelion_au: 50.0
+
+# Null-field budgets (ADR-0006)
+null_field_budget:
+  dark_comet_max_per_night: 5
+  iso_max_per_week: 1
+
+# Anomaly scoring (coniferest / IsolationForest)
+anomaly_score:
+  contamination: 0.01
+  random_seed: 20260422

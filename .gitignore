@@ -1,0 +1,89 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+/lib/
+/lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# venvs
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Project data (never commit science data)
+data/
+!data/.gitkeep
+!data/README.md
+runs/
+archive/
+*.sqlite
+*.sqlite-journal
+*.sqlite3
+*.parquet
+*.fits
+
+# find_orb artifacts — ADR-0008 forbids redistribution
+find_orb/
+fo
+fo.exe
+*.DAT
+ELP82.DAT
+cometg.txt
+bc405.cmt
+linux_p1550p2650.440
+sb441-n16.bsp
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Credentials
+*.token
+*.key
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
