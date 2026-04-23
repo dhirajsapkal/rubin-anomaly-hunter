@@ -146,7 +146,22 @@ class FinkConsumer:
             )
 
     def _credentials_available(self) -> bool:
+        # Resolve a default credentials path if one wasn't provided explicitly.
+        # Search order (first hit wins):
+        #   1. explicit ``config_path`` constructor arg
+        #   2. ``FINK_CLIENT_CONFIG`` env var
+        #   3. ``~/.finkclient/credentials.yml`` (fink-client's default)
         if self.config_path is None:
+            env_path = os.environ.get("FINK_CLIENT_CONFIG")
+            if env_path:
+                p = Path(env_path)
+                if p.exists():
+                    self.config_path = p
+                    return True
+            default = Path.home() / ".finkclient" / "credentials.yml"
+            if default.exists():
+                self.config_path = default
+                return True
             return False
         return self.config_path.exists()
 

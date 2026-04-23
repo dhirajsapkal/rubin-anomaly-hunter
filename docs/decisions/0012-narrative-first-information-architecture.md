@@ -1,8 +1,9 @@
 # ADR-0012 — Narrative-first information architecture
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0014](0014-single-surface-master-detail-ia.md)
 **Date:** 2026-04-22
 **Supersedes:** IA ordering portion of `docs/ux/brief.md` §3.3
+**Superseded by:** ADR-0014 — reading order preserved; surrounding page-based nav retired in favour of single-surface master-detail.
 
 ## Context
 

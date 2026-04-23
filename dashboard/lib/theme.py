@@ -17,15 +17,17 @@ THEME_CSS_PATH = STATIC_DIR / "theme.css"
 
 
 _STREAMLIT_OVERRIDES = """
-/* ---- Streamlit chrome overrides — Mission-Control Modern ----------------- */
+/* ---- Streamlit chrome overrides — Mission-Control Modern (quiet) --------- */
 
 #MainMenu, header[data-testid="stHeader"], footer { visibility: hidden; height: 0; }
 [data-testid="stDecoration"] { display: none; }
 [data-testid="stToolbar"] { display: none; }
 
-/* Main container — wider canvas for dense data */
+/* Main container — wider canvas for dense data.
+   Reduced top padding because the .rh-topnav strip now owns the top
+   56 px of the canvas. */
 [data-testid="stMainBlockContainer"], .block-container {
-  padding: 2.75rem 3rem 4rem !important;
+  padding: 1.25rem 3rem 4rem !important;
   max-width: 1360px !important;
 }
 
@@ -35,105 +37,61 @@ _STREAMLIT_OVERRIDES = """
   background: var(--bg-black) !important;
 }
 
-/* Sidebar — operational nav rail */
-[data-testid="stSidebar"] {
-  min-width: 240px !important;
-  width: 240px !important;
-  background: var(--bg-deep) !important;
-  border-right: 1px solid var(--border-default) !important;
-}
-[data-testid="stSidebar"] > div { padding-top: 1.5rem; }
-
-/* Native Streamlit page nav — re-skinned for ops console */
-[data-testid="stSidebarNav"] ul {
-  padding: var(--sp-2) var(--sp-3);
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-[data-testid="stSidebarNav"] a {
-  font-family: var(--font-body) !important;
-  font-weight: 500 !important;
-  font-size: var(--fs-body-sm) !important;
-  color: var(--text-secondary) !important;
-  padding: var(--sp-2) var(--sp-3) !important;
-  border-radius: var(--r-sm) !important;
-  letter-spacing: 0 !important;
-  transition: color 140ms var(--ease), background 140ms var(--ease) !important;
-  position: relative;
-  border-left: 2px solid transparent !important;
-}
-[data-testid="stSidebarNav"] a span { color: inherit !important; }
-[data-testid="stSidebarNav"] a:hover {
-  color: var(--text-primary) !important;
-  background: var(--bg-surface-1) !important;
-}
-[data-testid="stSidebarNav"] a[aria-current="page"] {
-  color: var(--text-primary) !important;
-  background: var(--bg-surface-1) !important;
-  border-left-color: var(--signal) !important;
-}
-/* Hide the default page-icons Streamlit injects */
+/* Sidebar — retired. Page nav has moved to the .rh-topnav strip.
+   Hide the sidebar, its internal page-nav, and the collapse control so
+   the canvas is full-width and there's no vestigial rail. */
+[data-testid="stSidebar"],
+[data-testid="stSidebarContent"],
+[data-testid="stSidebarNav"],
+[data-testid="stSidebarCollapseButton"],
 [data-testid="stSidebarNavSeparator"],
-[data-testid="stSidebarNav"] a svg { display: none !important; }
-
-/* Wordmark in the sidebar */
-.rh-wordmark {
-  padding: var(--sp-3) var(--sp-5) var(--sp-5);
-  border-bottom: 1px solid var(--border-default);
-  margin-bottom: var(--sp-3);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+[data-testid="collapsedControl"] {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  visibility: hidden !important;
 }
-.rh-wordmark .mark {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1rem;
-  color: var(--text-primary);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  display: flex;
+
+/* The sidebar's parent flex container still needs to collapse its gap */
+section[data-testid="stMain"] { margin-left: 0 !important; }
+
+/* Wordmark / rail-footer classes preserved for any legacy callers that
+   still reference them — rendered inline in the top-nav region now. */
+.rh-wordmark {
+  display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-primary);
 }
 .rh-wordmark .mark::before {
   content: "";
   width: 8px;
   height: 8px;
   background: var(--signal);
-  box-shadow: 0 0 12px rgba(255, 176, 32, 0.7);
   border-radius: 2px;
   display: inline-block;
-  animation: signalPulse 2s ease-in-out infinite;
+  margin-right: var(--sp-2);
 }
-.rh-wordmark .sub {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--text-tertiary);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  padding-left: 18px;
-}
+.rh-wordmark .sub { display: none; }
 
-/* Sidebar footer — commissioning/discovery window banner */
 .rh-rail-footer {
-  padding: var(--sp-4) var(--sp-5);
-  margin-top: var(--sp-5);
-  border-top: 1px solid var(--border-default);
   font-family: var(--font-mono);
   font-size: var(--fs-micro);
   color: var(--text-tertiary);
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  line-height: 1.7;
 }
-.rh-rail-footer strong {
-  color: var(--signal);
-  font-weight: 500;
-  display: block;
-  letter-spacing: 0.08em;
+.rh-rail-footer .tag {
+  color: var(--text-secondary);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  display: inline;
+  margin-left: var(--sp-2);
 }
 
 /* Streamlit button base — paired with decision classes below */
@@ -282,9 +240,17 @@ button[data-testid="baseButton-primary"] {
   color: var(--text-primary);
 }
 
-/* Archive row adds a 6-col grid variant */
-.wle-row.wle-row--archive {
-  grid-template-columns: 10px 112px 1fr 120px 140px 1fr;
+/* Archive-row grid now lives on .wle-row__main--archive in theme.css §28 —
+   the anchor itself is a flex-column shell. No override needed here. */
+
+/* Streamlit-emitted <code> pills inside the .card-paper narrative card
+   inherit a light default background; override so internal IDs read on dark. */
+.card-paper code,
+.card-paper pre {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  color: var(--text-primary) !important;
 }
 """
 
@@ -323,8 +289,8 @@ def sidebar_footer(window_state: str, config_tag: str) -> None:
     st.sidebar.markdown(
         f"""
 <div class="rh-rail-footer">
-  {html.escape(label)}<br/>
-  {html.escape(config_tag)}
+  {html.escape(label)}
+  <span class="tag">{html.escape(config_tag)}</span>
 </div>
 """,
         unsafe_allow_html=True,
@@ -375,3 +341,94 @@ def window_banner(window_state: str, config_tag: str) -> str:
 
 def mono(text: str) -> str:
     return f'<span class="u-mono">{html.escape(text)}</span>'
+
+
+# ---- Top navigation strip (replaces the Streamlit sidebar page nav) -------
+
+_NAV_ITEMS: list[tuple[str, str]] = [
+    ("Tonight", "/"),
+    ("Ledger",  "/Ledger"),
+    ("Health",  "/Health"),
+]
+
+
+def top_nav(active: str, provenance: dict[str, str] | None = None) -> str:
+    """Render the `.rh-topnav` strip with 3 destinations + provenance chips.
+
+    Parameters
+    ----------
+    active:
+        Destination name that should render as the active pill. One of
+        ``"Tonight"`` | ``"Ledger"`` | ``"Health"`` (case-insensitive).
+    provenance:
+        Optional mapping of label -> short value rendered as inline chips
+        on the right side. Typical keys: ``"INGEST"`` (value ``"LIVE"`` or
+        ``"DEMO"``) and ``"ORBITS"`` (value ``"REAL"`` or ``"MOCK"``).
+        ``MOCK`` uses the muted-amber variant; ``LIVE`` / ``REAL`` / ``OK``
+        use the teal ``--ok`` variant. Anything else is neutral.
+    """
+    a = (active or "").strip().lower()
+    links = []
+    for name, href in _NAV_ITEMS:
+        is_active = name.lower() == a
+        cls = "rh-topnav__link is-active" if is_active else "rh-topnav__link"
+        extra = ' aria-current="page"' if is_active else ""
+        links.append(
+            f'<a class="{cls}" href="{href}" target="_self"{extra}>'
+            f'{html.escape(name)}</a>'
+        )
+    links_html = "".join(links)
+
+    chips_html = ""
+    if provenance:
+        chips = []
+        for label, value in provenance.items():
+            vnorm = (value or "").strip().upper()
+            variant = "provenance-chip"
+            if vnorm in {"LIVE", "REAL", "OK"}:
+                variant += " provenance-chip--ok"
+            elif vnorm in {"MOCK", "DEMO", "PLACEHOLDER"}:
+                variant += " provenance-chip--mock"
+            elif vnorm in {"UNDETERMINED", "N/A", "PENDING"}:
+                variant += " provenance-chip--warn"
+            chips.append(
+                f'<span class="{variant}">'
+                f'<span class="provenance-chip__label">{html.escape(label)}</span>'
+                f'<span class="provenance-chip__value">{html.escape(str(value))}</span>'
+                '</span>'
+            )
+        chips_html = '<div class="rh-topnav__provenance">' + "".join(chips) + "</div>"
+
+    return (
+        '<nav class="rh-topnav" role="navigation">'
+        '<div class="rh-topnav__brand">'
+        '<div class="rh-wordmark"><span class="mark">RUBIN</span></div>'
+        '</div>'
+        f'<div class="rh-topnav__links">{links_html}</div>'
+        '<div class="rh-topnav__spacer"></div>'
+        f'{chips_html}'
+        '</nav>'
+    )
+
+
+def provenance_chips_for(data_source_info: dict) -> dict[str, str]:
+    """Derive the provenance chip dict from dashboard.lib.db.data_source_info.
+
+    INGEST:
+      - LIVE  — live.sqlite has triage content from a real Lasair pull
+      - DEMO  — falling back to the synthetic demo DB
+
+    ORBITS:
+      - REAL          — at least one orbit_fits row was produced by find_orb
+      - MOCK          — all existing orbit_fits rows are mock-noise
+      - UNDETERMINED  — ingest is live but produced 0 orbit_fits rows
+                        (aggregate-only inputs; per-detection arc needed)
+    """
+    ingest = "LIVE" if data_source_info.get("is_live") else "DEMO"
+    if data_source_info.get("orbit_count", 0) == 0 and ingest == "LIVE":
+        orbits = "UNDETERMINED"
+    elif data_source_info.get("any_mock_fit") or data_source_info.get("any_mock_linker"):
+        orbits = "MOCK"
+    else:
+        orbits = "REAL"
+    return {"INGEST": ingest, "ORBITS": orbits}

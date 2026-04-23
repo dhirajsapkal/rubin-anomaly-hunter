@@ -32,6 +32,38 @@ from .narrative import (
 from .theme import kind_pill, status_pill
 
 
+# -------- Data-source banner ----------------------------------------------
+
+def data_source_banner_html(info: dict[str, Any]) -> str:
+    """Amber banner at the top of a page when orbit-fit / linking is mock.
+
+    Renders nothing when on the live DB with real binaries, or on the demo
+    DB (the demo already self-identifies via the sidebar footer tag). Only
+    fires when ``is_live`` is True AND at least one of the two pipeline
+    stages ran in mock mode — that's the case that can mislead a reader.
+    """
+    if not info.get("is_live"):
+        return ""
+    mock_fit = bool(info.get("any_mock_fit"))
+    mock_link = bool(info.get("any_mock_linker"))
+    if not (mock_fit or mock_link):
+        return ""
+    parts = []
+    if mock_link:
+        parts.append("<strong>heliolinc3d:</strong> mock")
+    if mock_fit:
+        parts.append("<strong>find_orb:</strong> mock")
+    joined = "  ·  ".join(parts)
+    return (
+        '<div class="mock-banner">'
+        '<span class="mock-banner__label">ORBIT/LINK PATH</span>'
+        f'<span class="mock-banner__body">{joined} — orbits and tracklets on this page are '
+        '<em>placeholder</em> outputs, not scientifically valid. '
+        'Install the binaries (WSL2 on Windows) to go live.</span>'
+        '</div>'
+    )
+
+
 # -------- Page header ------------------------------------------------------
 
 def page_header_html(
@@ -517,7 +549,7 @@ def _constellation_svg(seed_key: str) -> str:
         f'stroke="currentColor" stroke-width="0.8" opacity="0.55"/>'
         for i in range(len(pts) - 1)
     ]
-    dots = [f'<circle cx="{x}" cy="{y}" r="1.6" fill="#B9F15D"/>' for x, y in pts]
+    dots = [f'<circle cx="{x}" cy="{y}" r="1.6" fill="currentColor"/>' for x, y in pts]
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100" '
         'viewBox="0 0 300 100" class="constellation">'
@@ -557,21 +589,24 @@ def archive_row_html(decision: dict[str, Any]) -> str:
     note = decision.get("note") or ""
     note_short = note if len(note) <= 90 else note[:87] + "…"
     pill_map = {
-        "accept": '<span class="pill" style="background:color-mix(in srgb, var(--decision-accept) 18%, transparent); color:var(--decision-accept);">ACCEPTED</span>',
-        "defer": '<span class="pill" style="background:color-mix(in srgb, var(--decision-defer) 18%, transparent); color:var(--decision-defer);">DEFERRED</span>',
-        "reject": '<span class="pill" style="background:color-mix(in srgb, var(--decision-reject) 18%, transparent); color:var(--decision-reject);">REJECTED</span>',
+        "accept":  '<span class="pill pill-accept">ACCEPTED</span>',
+        "defer":   '<span class="pill pill-defer">DEFERRED</span>',
+        "reject":  '<span class="pill pill-reject">REJECTED</span>',
         "promote": f'<span class="pill pill-candidate">CANDIDATE · {html.escape(date)}</span>',
     }
     pill = pill_map.get(decision_type, "")
     href = f"/Candidate_Detail?entry_id={decision['entry_id']}"
+    badge_label = "DARK COMET" if kind == "dark_comet" else "ISO"
     return (
-        f'<a class="wle-row" href="{href}" target="_self">'
-        f'<span class="kind-dot kind-dot--{kind_css}"></span>'
-        f'<span class="kind-badge kind-badge--{kind_css}">{"DARK COMET" if kind=="dark_comet" else "ISO"}</span>'
-        f'<span class="wle-id">{internal}</span>'
-        f'<span class="wle-meta">{html.escape(date)}</span>'
-        f'<span class="wle-meta">{pill}</span>'
-        f'<span class="wle-meta" style="grid-column: span 3; text-align:left; color:var(--text-secondary);">{html.escape(note_short)}</span>'
+        f'<a class="wle-row wle-row--archive" href="{href}" target="_self">'
+        f'  <div class="wle-row__main wle-row__main--archive">'
+        f'    <span class="kind-dot kind-dot--{kind_css}"></span>'
+        f'    <span class="kind-badge kind-badge--{kind_css}">{badge_label}</span>'
+        f'    <span class="wle-id">{internal}</span>'
+        f'    <span class="wle-meta">{html.escape(date)}</span>'
+        f'    <span class="wle-meta wle-meta--pill">{pill}</span>'
+        f'    <span class="wle-meta wle-meta--note">{html.escape(note_short)}</span>'
+        f'  </div>'
         "</a>"
     )
 

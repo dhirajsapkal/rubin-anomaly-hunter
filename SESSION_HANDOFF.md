@@ -1,112 +1,218 @@
-# Session Handoff — 2026-04-22
+# Session Handoff — 2026-04-23 (end of session)
 
-**Status:** dashboard is live and functional; awaiting Playwright MCP to do a real visual QA pass.
+**Status:** Paused mid-WSL-install. User is rebooting to enable BIOS
+virtualization. A follow-up question suggests they may pivot to a
+**cloud-hosted (GitHub Actions + Streamlit Cloud) architecture**
+instead of local WSL.
 
-This file is the fast-read orientation for a new Claude session picking up mid-work. Read `CLAUDE.md` → this file → then `docs/decisions/` entries as needed.
+Next Claude session: read `CLAUDE.md` → this file → recent ADRs
+(0013–0016) → decide which of the two branches below to execute.
 
 ---
 
 ## Where we are
 
-**The project exists.** PRD, 12 ADRs, pipeline scaffold, synthetic demo dataset, 5-page Streamlit dashboard. Everything is committed except this session's redesign work — see "Uncommitted at handoff" below.
+**This session ships:**
 
-**Design direction** was pivoted mid-session from "Observatory Night-Log" to **Mission-Control Modern** after user feedback. See ADR-0011.
+1. **Complete dashboard redesign** (agency-style 4-agent audit → 3-pill
+   top nav + single-surface master-detail Tonight + Mollweide sky map +
+   14-night cadence bar + population strip-plots on canvas). ADR-0014
+   + ADR-0015 accepted; ADR-0012 superseded. Live at
+   `http://localhost:8701/` when streamlit is running.
+2. **Honesty gate** on the pipeline — degenerate tracklets (Lasair
+   aggregate-only, all-same-coord detections) are no longer fitted
+   with mock noise. They're marked `undetermined`. The chip reads
+   `ORBITS: UNDETERMINED` (new amber variant) instead of the
+   misleading `MOCK`.
+3. **Fink Kafka ingest path** (ADR-0016, supersedes ADR-0013 for
+   production). New module `src/rubin_hunter/ingest/fink_ingest.py`
+   extracts `diaSource` + `prvDiaSources` per alert → per-detection
+   rows. Pipeline accepts `ingest_mode="fink"`. CLI flag `--ingest
+   {lasair,fink}`. Smoke-tested on a synthetic alert: 3 distinct
+   `(ra, dec, mjd)` points extracted correctly.
+4. **WSL2 bootstrap scripts** at `scripts/wsl/`:
+   - `bootstrap.sh` — installs apt deps, builds Bill Gray's find_orb
+     stack (lunar → jpl_eph → sat_code → find_orb), builds heliolinc3d
+     best-effort, creates Python venv with fink-client.
+   - `setup_fink_creds.sh` — copies Fink YAML to
+     `~/.finkclient/credentials.yml`.
+5. **ADRs:** 0014 (IA), 0015 (typography), 0016 (Fink Kafka ingest).
+   ADR-0012 and 0013 marked superseded.
 
-**Information architecture** was pivoted from data-first to **narrative-first** after user said the original UI didn't explain *what's weird* about each entry. See ADR-0012. Added `dashboard/lib/narrative.py` — generates plain-language explanations + ranked hypotheses from existing entry data.
-
----
-
-## What's running
-
-- **Streamlit dashboard** on `http://localhost:8701/` — a background process from this session. If it's down, start with `streamlit run dashboard\app.py` or `scripts\run_dashboard.bat`.
-- **Demo SQLite** at `data/demo.sqlite` with 4 open watch-list entries (3 dark comets + 1 ISO) + 7 archived decisions. Regenerate any time via `python scripts\make_demo_db.py`.
-- **Note:** during testing, entry_id=1 was accidentally decided as "accept" via an AppTest harness misconfiguration. It appears in the Archive now instead of the Watch List. This is harmless — just regenerate the demo DB if you want a pristine 5-entry state.
-
----
-
-## What the user just installed
-
-- **`frontend-design` plugin** — Anthropic's visual design skill. Invoked it via `Skill` tool earlier this session; it guided the redesign direction. Already loaded into the session.
-- **Playwright MCP** — the user just ran `claude mcp add playwright -- npx @playwright/mcp@latest`. After a Claude Code restart, browser tools (`browser_navigate`, `browser_take_screenshot`, `browser_snapshot`, `browser_console_messages`, `browser_click`, `browser_type`, etc.) will appear in the tool list.
-
----
-
-## Next action for the new session
-
-**Visual QA pass of the dashboard using Playwright.** Run through these in order:
-
-1. `browser_navigate` to `http://localhost:8701/`
-2. Take a screenshot of the Tonight page. Verify the hero numeric renders in amber, the telemetry bar at top, the "TONIGHT'S LEAD" strip picks the ISO entry (id=5), and the sparkline tile renders.
-3. `browser_console_messages` — any CSS warnings, font 404s, or backdrop-filter failures? (The user reported a "random black square" earlier; we eliminated the suspected cause, but Playwright will confirm cleanly.)
-4. `browser_click` into Watch List → confirm each row shows its "what's weird" secondary line:
-   - Entry 4: *"non-grav signature — but a systematic is suspected"*
-   - Entry 5: *"hyperbolic orbit matching a known iso"*
-5. Click into entry 5 (the 3I/ATLAS-like ISO) → screenshot the Candidate Detail page. Verify:
-   - Amber left-accent bar on the card-paper top
-   - "WHAT'S WEIRD ABOUT THIS" headline: *"Hyperbolic orbit matching a known ISO"*
-   - "WHAT IT COULD BE" cards with LEADING (Rediscovery of a known ISO) → PLAUSIBLE × 2 → UNLIKELY order
-   - Hypothesis chevrons rotate on `<details>` expand
-   - Orbit-fit grid has 9 rows with symbol/value/gloss columns
-6. Click into entry 4 (suspicious systematic dark comet) → verify the leading hypothesis pill is SYSTEMATIC (red border) and the narrative text explains the chip correlation concern.
-7. Resize viewport to 1280 px (minimum supported per PRD §N). Check that the 8-column watch-list grid doesn't collapse badly.
-8. Hover a cutout thumbnail on Candidate Detail — the `scale(1.75)` transform should fire.
-9. Report findings with concrete screenshots. Expect minor polish items; the IA and narrative generator have been tested via AppTest so the Python side is known-good.
+**Uncommitted:** everything this session. The user has NOT asked to
+commit. Ask first.
 
 ---
 
-## Uncommitted at handoff
+## Blocker: WSL2 failed to install
 
-The last committed revision (`d0948f5`) is the initial scaffold with the old Observatory Night-Log design. **All redesign work from this session is uncommitted**, including:
-
-- Complete `dashboard/static/theme.css` rewrite (Mission-Control Modern)
-- `dashboard/lib/theme.py` `_STREAMLIT_OVERRIDES` rewrite
-- New `dashboard/lib/narrative.py`
-- Hero numeric + telemetry bar + lead-story components in `dashboard/lib/components.py`
-- Watch-list row restructure (adds `wle-row__main` + `wle-row__whatsweird`)
-- Orbit fit block rewrite (3-column grid with plain-language glosses)
-- Candidate Detail page IA rewrite (narrative-first)
-- Tonight page hero + lead-story
-- ADR-0011 + ADR-0012
-- This handoff file
-
-Commit message should be along the lines of:
+The user ran `wsl --install` in admin PowerShell. WSL 2.6.3 installed,
+but Ubuntu failed with:
 
 ```
-Redesign: Mission-Control Modern visual direction + narrative-first IA
-
-- Complete theme.css rewrite (IBM Plex, electric amber accent, ops-console
-  feel, gradient mesh, no backdrop-filter)
-- dashboard/lib/narrative.py: derives why-flagged + ranked hypotheses from
-  entry data (no new DB columns)
-- Candidate Detail IA: narrative -> evidence -> data
-- Watch List rows show one-line "what's weird" summaries
-- Tonight page adds TONIGHT'S LEAD strip and 120px tabular-mono hero
-- Orbit fit block renders as a 3-col grid with plain-language glosses
-- ADR-0011 (visual direction), ADR-0012 (narrative-first IA)
-- Bug fixes: status value mismatch (accept vs accepted), double-fire guard
-  on decision actions, relative href -> absolute href for cross-page nav
+WSL2 is not supported with your current machine configuration.
+Please enable the "Virtual Machine Platform" optional component and
+ensure virtualization is enabled in the BIOS.
+Error code: Wsl/InstallDistro/Service/RegisterDistro/CreateVm/HCS/HCS_E_HYPERV_NOT_INSTALLED
 ```
 
----
+The user ended the session to enter BIOS and enable Intel VT-x / AMD-V
+(or the machine's equivalent SVM Mode). On resumption, expected flow:
 
-## Known minor issues (candidates for fixes after Playwright QA)
-
-- `docs/ux/brief.md` + `docs/ux/design-system.md` still describe the old Observatory Night-Log aesthetic. ADR-0011 notes they are partially superseded; a future pass should rewrite the affected sections rather than leave them stale.
-- `.decision-bar` uses `position: sticky` to the block-container, not to the card itself (QA review F2 from earlier — deferred as polish).
-- Cutouts are procedural synthetic imagery labeled "demo" — no real FITS data until live Fink stream is connected.
-- `find_orb` and `heliolinc3d` wrappers run in mock mode unless the binaries are installed (ADR-0007, ADR-0008).
+1. `wsl --install --no-distribution` (admin PowerShell) → reboot
+2. Verify Task Manager → Performance → CPU → Virtualization: Enabled
+3. `wsl --install -d Ubuntu` → create Linux username/password
 
 ---
 
-## Useful pointers
+## User's follow-up question (unresolved)
 
-- **PRD:** `PRD.md` (17 sections)
-- **Project orientation:** `CLAUDE.md`
-- **All design reasoning:** `docs/decisions/` (README.md is the index)
-- **UX brief:** `docs/ux/brief.md` (persona, language rules, decision semantics — authoritative)
-- **Demo data:** `data/demo.sqlite` (regen via `scripts\make_demo_db.py`)
-- **Dashboard entry:** `dashboard/app.py` (Streamlit multipage)
-- **Narrative logic:** `dashboard/lib/narrative.py`
-- **Theme:** `dashboard/static/theme.css` + `dashboard/lib/theme.py` `_STREAMLIT_OVERRIDES`
+At the end of the session the user asked:
+
+> can this be hosted somewhere free where it can run 24x7 (or at least
+> whenever new data comes out). And will that mean I can skip
+> installing wsl?
+
+I answered **yes** and sketched the architecture (GitHub Actions +
+Streamlit Cloud). The user has NOT confirmed which path they want. So
+the **next session's first question** is:
+
+> **Did you decide to go cloud (GHA + Streamlit Cloud, skip WSL) or
+> local (finish WSL install now that BIOS is fixed)?**
+
+Both paths are ready for me.
+
+---
+
+## Branch A — cloud-hosted (preferred recommendation)
+
+**Free 24x7 via GitHub Actions + Streamlit Community Cloud.** Removes
+all local-machine pain. Architecture:
+
+- GHA workflow (cron every 2–6 hours) on Ubuntu runner:
+  - checkout repo
+  - build find_orb from Bill Gray source (cache between runs; ADR-0008
+    compliant — never committed)
+  - optionally build heliolinc3d
+  - install fink-client in a venv
+  - read Fink YAML from GitHub Secrets
+  - run `python scripts/run_live_pipeline.py --ingest fink`
+  - commit updated `live.sqlite` + Parquet archive to a `data` branch
+- Streamlit Cloud reads the dashboard from `main`, pulls `live.sqlite`
+  from the `data` branch.
+
+**What I still need to write next session:**
+
+- `.github/workflows/pipeline.yml` (the cron GHA)
+- `.streamlit/config.toml` (Streamlit Cloud entry point)
+- A small script that rehydrates `live.sqlite` from the data branch on
+  dashboard startup
+- Update `dashboard/lib/db.py` to fall back to a fetched-from-branch
+  location if local `live.sqlite` isn't present
+
+**What the user does next session:**
+
+- Push the repo to GitHub (private is fine; GHA is free on private)
+- Add two GHA Secrets: `FINK_CLIENT_YAML` (paste Fink credentials),
+  optionally `LASAIR_TOKEN`
+- Enable GitHub Actions
+- Sign up at share.streamlit.io, point it at their repo's `main`
+
+First real-orbit fit: ~15 min after the first GHA run.
+
+**This path skips WSL entirely.** No BIOS. No local binary builds. No
+local `data/live.sqlite`.
+
+---
+
+## Branch B — local WSL (if BIOS fix succeeds and user prefers local)
+
+Everything needed is already scripted:
+
+```bash
+wsl -e bash "/mnt/e/Claude experiments/Veera Rubin/scripts/wsl/bootstrap.sh"
+wsl -e bash "/mnt/e/Claude experiments/Veera Rubin/scripts/wsl/setup_fink_creds.sh" \
+  "/mnt/c/Users/Main/fink_client.yml"
+wsl -e bash -c 'source ~/.rubin-hunter.env && \
+  source $RUBIN_HUNTER_VENV/bin/activate && \
+  cd "/mnt/e/Claude experiments/Veera Rubin" && \
+  python scripts/run_live_pipeline.py --ingest fink \
+    --fink-max-messages 100 --fink-timeout-s 60'
+```
+
+User also needs to complete Fink signup at
+`https://fink-broker.readthedocs.io/en/latest/services/livestream/`
+and save the YAML to `C:\Users\Main\fink_client.yml` (path is a
+suggestion; `setup_fink_creds.sh` takes the actual path as an arg).
+
+After success: chip flips to `INGEST: LIVE · ORBITS: REAL`, first
+real watch-list entry appears on the dashboard.
+
+---
+
+## Security follow-ups the user should still address
+
+1. **Rotate the Lasair token** `e33bb5e1c0000c9bce7eb0ac24820790212e83bf`
+   — it appears in this chat transcript and in
+   `.claude/settings.local.json` (which I have already added to
+   `.gitignore`). The token is still valid as of session end.
+2. **Fink YAML**, once the user has it, should go into GitHub Secrets
+   (Branch A) or `~/.finkclient/credentials.yml` in WSL (Branch B),
+   never into the repo.
+
+---
+
+## Files changed this session (uncommitted)
+
+**New:**
+- `dashboard/lib/skymap.py` (Mollweide all-sky)
+- `dashboard/lib/cadence.py` (14-night cadence bar + summary phrase)
+- `dashboard/lib/strip_plot.py` (population rails)
+- `dashboard/pages/1_Ledger.py` (renamed from Archive)
+- `dashboard/pages/2_Health.py` (renamed from Pipeline_Health)
+- `src/rubin_hunter/ingest/fink_ingest.py` (Fink alert → detection rows)
+- `scripts/wsl/bootstrap.sh`
+- `scripts/wsl/setup_fink_creds.sh`
+- `docs/decisions/0014-single-surface-master-detail-ia.md`
+- `docs/decisions/0015-display-typography-plex-sans.md`
+- `docs/decisions/0016-fink-kafka-primary-ingest.md`
+
+**Rewritten:**
+- `dashboard/app.py` (Tonight = master-detail canvas)
+- `dashboard/static/theme.css` (quiet canvas edition — ADR-0015
+  typography, 3-pill top nav, master-detail grid, provenance chips)
+- `dashboard/lib/theme.py` (sidebar hidden, `top_nav()` helper,
+  `provenance_chips_for()` with UNDETERMINED variant)
+- `dashboard/lib/narrative.py` (+`generate_night_lede`, tension-naming
+  rewrite of `generate_why_flagged`)
+- `dashboard/lib/db.py` (+`nights_for_cadence`,
+  `detections_for_skymap`, `tracklet_population_rails`, resolver now
+  prefers live regardless of watch-list emptiness)
+- `src/rubin_hunter/pipeline.py` (honesty gate + fink ingest branch)
+- `src/rubin_hunter/ingest/fink_consumer.py` (creds resolution
+  hardened)
+- `src/rubin_hunter/ingest/lasair_rest.py` (real LSST column names)
+- `scripts/run_live_pipeline.py` (`--ingest` flag)
+- `.gitignore` (+`.claude/settings.local.json`)
+- `docs/decisions/README.md` + `0012*.md`, `0013*.md` (superseded
+  status)
+
+**Retired:**
+- `dashboard/pages/1_Watch_List.py`
+- `dashboard/pages/2_Candidate_Detail.py`
+- `dashboard/pages/3_Archive.py`
+- `dashboard/pages/4_Pipeline_Health.py`
+
+---
+
+## Memory additions this session
+
+- `feedback_ux_agency_pattern.md` — deploy parallel specialist
+  subagents for UI/UX audits with `/frontend-design`; synthesize
+  before implementing.
+
+Both memory files are in
+`C:\Users\Main\.claude\projects\E--Claude-experiments-Veera-Rubin\memory\`
+and indexed in `MEMORY.md`.
 
 *End of handoff.*

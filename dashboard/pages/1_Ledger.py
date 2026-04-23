@@ -1,14 +1,15 @@
-"""Archive — append-only history of every decision ever made.
+"""Ledger — append-only history of every decision ever made.
 
-Filterable by kind, decision type, and free text over notes. Clicking a row
-opens the historical Candidate Detail view for that entry in read-only mode
-(the Candidate Detail page auto-detects a terminal status).
+This is the former `Archive` page (renamed per ADR-0014 to reinforce the
+append-only, git-tracked framing). Filterable by kind, decision type,
+and free text over notes. Clicking a row opens the historical entry in
+the Tonight canvas in read-only mode (status is terminal).
 """
 
 from __future__ import annotations
 
 import datetime as dt
-import html
+import html as _html
 
 import streamlit as st
 
@@ -16,30 +17,36 @@ from lib import db
 from lib.components import (
     archive_row_html,
     empty_state_html,
-    page_header_html,
 )
-from lib.theme import inject_theme, sidebar_footer, wordmark_sidebar
+from lib.theme import (
+    inject_theme,
+    provenance_chips_for,
+    top_nav,
+)
 
 
 st.set_page_config(
-    page_title="Rubin Anomaly Hunter — Archive",
+    page_title="Rubin Anomaly Hunter — Ledger",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 inject_theme()
 
-with st.sidebar:
-    wordmark_sidebar()
 
 conn = db.get_connection()
 summary = db.tonight_summary(conn)
-sidebar_footer(summary["window_state"], summary["config_tag"])
+ds_info = db.data_source_info(conn)
 
+# Top nav with provenance chips
+st.html(top_nav("Ledger", provenance=provenance_chips_for(ds_info)))
 
-now = dt.datetime.now().strftime("%a %Y-%m-%d · %H:%M")
-st.markdown(
-    page_header_html("Archive", now_line=now, meta_line="append-only · git-tracked"),
-    unsafe_allow_html=True,
+# Page title + subhead
+now_iso = dt.datetime.now().strftime("%a %Y-%m-%d · %H:%M")
+st.html(
+    '<header class="page-head">'
+    '<h1 class="page-head__title">Ledger</h1>'
+    f'<p class="page-head__meta mono-sm">{_html.escape(now_iso)}  ·  append-only  ·  git-tracked</p>'
+    '</header>'
 )
 
 
@@ -50,7 +57,7 @@ with filter_cols[0]:
     kind_filter = st.selectbox(
         "Kind",
         ["all", "dark_comet", "iso"],
-        format_func=lambda v: {"all": "All", "dark_comet": "Dark comets", "iso": "ISOs"}[v],
+        format_func=lambda v: {"all": "All kinds", "dark_comet": "Dark comets", "iso": "ISOs"}[v],
         label_visibility="collapsed",
     )
 with filter_cols[1]:
@@ -92,41 +99,45 @@ if search:
 if not decisions:
     st.markdown(
         empty_state_html(
-            "No decisions match these filters." if kind_filter != "all" or decision_filter != "all" or search
-            else "No decisions logged yet.",
-            "The first watch-list entry you review will appear here.",
+            "No decisions logged yet."
+            if kind_filter == "all" and decision_filter == "all" and not search
+            else "No decisions match these filters.",
+            "The first watch-list entry you decide on appears here.",
             "",
-            seed_key="archive-empty",
+            seed_key="ledger-empty",
         ),
         unsafe_allow_html=True,
     )
 else:
-    # Summary line
     counts = {d["decision"]: 0 for d in decisions}
     for d in decisions:
         counts[d["decision"]] = counts.get(d["decision"], 0) + 1
     summary_line = " · ".join(
         f"{counts.get(k, 0)} {label.lower()}"
-        for k, label in [("accept", "accepted"), ("defer", "deferred"),
-                         ("reject", "rejected"), ("promote", "promoted")]
+        for k, label in [
+            ("accept",  "accepted"),
+            ("defer",   "deferred"),
+            ("reject",  "rejected"),
+            ("promote", "promoted"),
+        ]
         if counts.get(k, 0) > 0
     )
     st.markdown(
-        f'<div class="body-sm u-mb-4" style="color:var(--text-secondary);">'
+        f'<p class="body-sm u-mb-4 u-secondary">'
         f'{len(decisions)} total · {summary_line}'
-        f"</div>",
+        f'</p>',
         unsafe_allow_html=True,
     )
-    for d in decisions:
-        st.markdown(archive_row_html(d), unsafe_allow_html=True)
+    rows_html = "".join(archive_row_html(d) for d in decisions)
+    st.html(f'<div class="wle-list">{rows_html}</div>')
 
 
-# ---- Footer note ----------------------------------------------------------
+# ---- Footer --------------------------------------------------------------
 
 st.markdown(
-    '<p class="mono-sm u-mt-8" style="color: var(--text-tertiary);">'
-    "Decisions are append-only. Accepted / rejected / promoted are terminal states; "
+    '<p class="mono-sm u-mt-8 u-tertiary">'
+    "Ledger is append-only. Accepted / rejected / promoted are terminal states; "
     "only deferred entries can be reopened (PRD §F10)."
-    "</p>",
+    '</p>',
     unsafe_allow_html=True,
 )

@@ -145,21 +145,21 @@ def light_curve_svg(
     if not _HAS_MPL or not detections:
         return _empty_svg("no light-curve data", width, height)
     fig, ax = plt.subplots(figsize=(width, height))
-    fig.patch.set_facecolor("#F2E8D5")
-    ax.set_facecolor("#F2E8D5")
+    fig.patch.set_alpha(0.0)
+    ax.set_facecolor("none")
     for spine in ax.spines.values():
-        spine.set_color("#D4C9B0")
-    ax.tick_params(colors="#555770", labelsize=8)
-    ax.set_xlabel("MJD", color="#555770", fontsize=9)
-    ax.set_ylabel("PSF flux (nJy)", color="#555770", fontsize=9)
+        spine.set_color("#252C3C")
+    ax.tick_params(colors="#9BA3B5", labelsize=8)
+    ax.set_xlabel("MJD", color="#9BA3B5", fontsize=9)
+    ax.set_ylabel("PSF flux (nJy)", color="#9BA3B5", fontsize=9)
 
     band_color = {
-        "u": "#6B8C37",
-        "g": "#6B8C37",
-        "r": "#E8A87C",
-        "i": "#C88BD0",
-        "z": "#7BA9D9",
-        "y": "#D9B06C",
+        "u": "#A5B4FC",
+        "g": "#5EEAD4",
+        "r": "#FDBA74",
+        "i": "#F87171",
+        "z": "#7DD3FC",
+        "y": "#FFB020",
     }
     band_marker = {"u": "^", "g": "o", "r": "o", "i": "s", "z": "D", "y": "v"}
 
@@ -184,12 +184,12 @@ def light_curve_svg(
 
     ax.legend(
         frameon=False, fontsize=8, loc="upper right",
-        labelcolor="#555770", handlelength=0.8,
+        labelcolor="#9BA3B5", handlelength=0.8,
     )
     fig.tight_layout(pad=0.5)
 
     buf = io.StringIO()
-    fig.savefig(buf, format="svg", transparent=False, bbox_inches="tight", pad_inches=0.15)
+    fig.savefig(buf, format="svg", transparent=True, bbox_inches="tight", pad_inches=0.15)
     plt.close(fig)
     return buf.getvalue()
 
@@ -216,30 +216,30 @@ def orbit_svg(p: OrbitParams, width: float = 4.6, height: float = 4.6) -> str:
     if not _HAS_MPL:
         return _empty_svg("matplotlib missing", width, height)
     fig, ax = plt.subplots(figsize=(width, height))
-    fig.patch.set_facecolor("#F2E8D5")
-    ax.set_facecolor("#F2E8D5")
+    fig.patch.set_alpha(0.0)
+    ax.set_facecolor("none")
     ax.set_aspect("equal", adjustable="box")
     for spine in ax.spines.values():
         spine.set_visible(False)
-    ax.tick_params(colors="#555770", labelsize=8)
+    ax.tick_params(colors="#5B6275", labelsize=8)
 
     # Planet rings (circular top-down approximation)
     for name, ra in _PLANET_SEMIMAJOR_AU.items():
         theta = np.linspace(0, 2 * np.pi, 240)
         ax.plot(
             ra * np.cos(theta), ra * np.sin(theta),
-            color="#D4C9B0", linewidth=0.8, zorder=1,
+            color="#252C3C", linewidth=0.8, zorder=1,
         )
-        ax.plot(ra, 0, marker="o", markersize=3, color="#555770", zorder=2)
+        ax.plot(ra, 0, marker="o", markersize=3, color="#5B6275", zorder=2)
         ax.text(
-            ra + 0.08, 0.05, name, fontsize=8, color="#555770",
+            ra + 0.08, 0.05, name, fontsize=8, color="#5B6275",
             style="italic", alpha=0.8,
         )
     # Sun
-    ax.plot(0, 0, marker="o", markersize=5, color="#D9B06C", zorder=3)
+    ax.plot(0, 0, marker="o", markersize=5, color="#FFB020", zorder=3)
 
-    # Fit orbit: handle bound vs. hyperbolic
-    color_kind = "#C88BD0" if p.category == "dark_comet" else "#E8A87C"
+    # Fit orbit: bound (bound = dark comet in demo) vs. hyperbolic (ISO)
+    color_kind = "#7DD3FC" if p.category == "dark_comet" else "#FF8FA3"
     if p.e < 1.0 and p.a_au > 0:
         # Ellipse
         a, e = p.a_au, p.e
@@ -258,19 +258,13 @@ def orbit_svg(p: OrbitParams, width: float = 4.6, height: float = 4.6) -> str:
         y = r * np.sin(th)
         ax.plot(x, y, color=color_kind, linewidth=1.8, zorder=4)
 
-    # Current position marker (phosphor)
-    if p.e < 1:
-        ax.plot(
-            (p.perihelion_au or 0.5), 0, marker="o", markersize=7,
-            markerfacecolor="#B9F15D", markeredgecolor="#1A1A2E",
-            markeredgewidth=0.8, zorder=6,
-        )
-    else:
-        ax.plot(
-            p.perihelion_au or 1.3, 0, marker="o", markersize=7,
-            markerfacecolor="#B9F15D", markeredgecolor="#1A1A2E",
-            markeredgewidth=0.8, zorder=6,
-        )
+    # Current position marker — amber dot on dark canvas
+    marker_x = (p.perihelion_au or (0.5 if p.e < 1 else 1.3))
+    ax.plot(
+        marker_x, 0, marker="o", markersize=7,
+        markerfacecolor="#FFB020", markeredgecolor="#070A10",
+        markeredgewidth=0.8, zorder=6,
+    )
 
     # Frame extent
     lim = max(6.0, (p.aphelion_au or abs(p.a_au) * (1 + p.e)) * 1.15, 6.5)
@@ -286,12 +280,12 @@ def orbit_svg(p: OrbitParams, width: float = 4.6, height: float = 4.6) -> str:
     ax.text(
         -lim * 0.95, -lim * 0.95,
         f"a={p.a_au:+.2f} AU  e={p.e:.3f}  i={p.incl_deg:.1f}°  q={peri}  Q={ap}",
-        fontsize=9, family="monospace", color="#1A1A2E",
+        fontsize=9, family="monospace", color="#9BA3B5",
     )
 
     fig.tight_layout(pad=0.2)
     buf = io.StringIO()
-    fig.savefig(buf, format="svg", transparent=False, bbox_inches="tight", pad_inches=0.15)
+    fig.savefig(buf, format="svg", transparent=True, bbox_inches="tight", pad_inches=0.15)
     plt.close(fig)
     return buf.getvalue()
 
@@ -303,25 +297,27 @@ def sparkline_svg(
     width: float = 4.8,
     height: float = 0.9,
     threshold: float | None = None,
-    color: str = "#B9F15D",
+    color: str = "#FFB020",
 ) -> str:
     if not _HAS_MPL or not values:
         return _empty_svg("—", width, height)
     fig, ax = plt.subplots(figsize=(width, height))
-    fig.patch.set_facecolor("#131A2E")
-    ax.set_facecolor("#131A2E")
+    # Transparent so the surrounding tile's background shows through and the
+    # sparkline reads as a single mission-control accent with no off-palette box.
+    fig.patch.set_alpha(0.0)
+    ax.set_facecolor("none")
     for spine in ax.spines.values():
         spine.set_visible(False)
     ax.set_xticks([])
     ax.set_yticks([])
     xs = np.arange(len(values))
-    ax.plot(xs, values, color=color, linewidth=1.4)
+    ax.plot(xs, values, color=color, linewidth=1.5)
     ax.scatter(xs, values, s=6, color=color, zorder=3)
     if threshold is not None:
-        ax.axhline(threshold, color="#6D7595", linestyle="--", linewidth=0.8)
+        ax.axhline(threshold, color="#5B6275", linestyle="--", linewidth=0.8)
     fig.tight_layout(pad=0.1)
     buf = io.StringIO()
-    fig.savefig(buf, format="svg", transparent=False, bbox_inches="tight", pad_inches=0.08)
+    fig.savefig(buf, format="svg", transparent=True, bbox_inches="tight", pad_inches=0.08)
     plt.close(fig)
     return buf.getvalue()
 
@@ -330,8 +326,7 @@ def _empty_svg(message: str, width: float, height: float) -> str:
     w, h = int(width * 72), int(height * 72)
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">'
-        f'<rect width="100%" height="100%" fill="#F2E8D5"/>'
         f'<text x="{w//2}" y="{h//2}" text-anchor="middle" dominant-baseline="middle" '
-        f'font-family="JetBrains Mono, monospace" font-size="12" fill="#6D7595">{message}</text>'
+        f'font-family="IBM Plex Mono, monospace" font-size="12" fill="#5B6275">{message}</text>'
         f'</svg>'
     )

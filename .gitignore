@@ -80,6 +80,11 @@ sb441-n16.bsp
 .env.*
 !.env.example
 
+# Claude Code local settings (per-user; may contain approved Bash entries
+# that embed secrets the operator passed on the command line)
+.claude/settings.local.json
+.claude/*.local.json
+
 # OS
 .DS_Store
 Thumbs.db
@@ -87,3 +92,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Ephemeral QA / debug scratch (screenshots, one-off scripts)
+tmp/

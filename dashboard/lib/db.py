@@ -10,6 +10,7 @@ See ADR-0009 (own history layer), PRD §F10 (append-only decision audit).
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -17,16 +18,100 @@ from typing import Any
 import streamlit as st
 
 
-DEMO_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "demo.sqlite"
+_DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+DEMO_DB_PATH = _DATA_DIR / "demo.sqlite"
+LIVE_DB_PATH = _DATA_DIR / "live.sqlite"
+
+
+def resolve_db_path() -> Path:
+    """Decide which SQLite file the dashboard reads from.
+
+    Resolution order:
+      1. ``RUBIN_HUNTER_DB`` env var, if it points at a readable file.
+      2. ``data/live.sqlite`` if it exists AND holds any evidence of a real
+         pipeline run (detections ingested, tracklets linked, pipeline_health
+         logged). Empty-watch-list is fine — the honesty gate correctly
+         rejects degenerate aggregate-only arcs; the dashboard should show
+         that truth, not a synthetic demo.
+      3. ``data/demo.sqlite`` only when live has never run.
+
+    Live wins as soon as it reflects a real ingest. Demo remains the
+    first-boot fallback so a fresh clone of the repo isn't empty.
+    """
+    env = os.environ.get("RUBIN_HUNTER_DB")
+    if env:
+        p = Path(env)
+        if p.exists():
+            return p
+    if LIVE_DB_PATH.exists():
+        try:
+            conn = sqlite3.connect(str(LIVE_DB_PATH))
+            try:
+                row = conn.execute(
+                    "SELECT "
+                    "  (SELECT COUNT(*) FROM detections) AS n_det, "
+                    "  (SELECT COUNT(*) FROM pipeline_health) AS n_health"
+                ).fetchone()
+                has_run = bool(row and (row[0] > 0 or row[1] > 0))
+            finally:
+                conn.close()
+            if has_run:
+                return LIVE_DB_PATH
+        except sqlite3.Error:
+            pass
+    return DEMO_DB_PATH
 
 
 @st.cache_resource(show_spinner=False)
-def get_connection(db_path: str | Path = DEMO_DB_PATH) -> sqlite3.Connection:
-    """Cached read-only-ish SQLite connection. Row factory returns sqlite3.Row."""
-    conn = sqlite3.connect(str(db_path), check_same_thread=False)
+def get_connection(db_path: str | Path | None = None) -> sqlite3.Connection:
+    """Cached SQLite connection. Defaults to :func:`resolve_db_path`."""
+    p = Path(db_path) if db_path is not None else resolve_db_path()
+    conn = sqlite3.connect(str(p), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+def data_source_info(conn: sqlite3.Connection) -> dict[str, Any]:
+    """Return a dashboard-facing description of the active data source.
+
+    Keys:
+      db_path          — absolute path to the SQLite file
+      is_live          — True when running against live.sqlite, False for demo
+      any_mock_fit     — True if any orbit_fits row has a 'mock' software_version
+      any_mock_linker  — True if any tracklet came from mock linking (reliably
+                         inferable from pipeline_health.notes)
+      last_run_notes   — the notes string from the most recent pipeline_health row
+    """
+    db_path = Path(conn.execute("PRAGMA database_list").fetchone()[2])
+    is_live = db_path.name == "live.sqlite"
+    any_mock_fit = False
+    any_mock_linker = False
+    orbit_count = 0
+    last_run_notes = ""
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM orbit_fits "
+            "WHERE lower(software_version) LIKE '%mock%'"
+        ).fetchone()
+        any_mock_fit = bool(row and row[0] > 0)
+        row = conn.execute("SELECT COUNT(*) FROM orbit_fits").fetchone()
+        orbit_count = int(row[0]) if row else 0
+        row = conn.execute(
+            "SELECT notes FROM pipeline_health ORDER BY obs_night DESC LIMIT 1"
+        ).fetchone()
+        last_run_notes = (row["notes"] if row else "") or ""
+        any_mock_linker = "linking=mock" in last_run_notes
+    except sqlite3.Error:
+        pass
+    return {
+        "db_path": str(db_path),
+        "is_live": is_live,
+        "any_mock_fit": any_mock_fit,
+        "any_mock_linker": any_mock_linker,
+        "orbit_count": orbit_count,
+        "last_run_notes": last_run_notes,
+    }
 
 
 def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -81,6 +166,86 @@ def last_n_nights_health(conn: sqlite3.Connection, n: int = 14) -> list[dict[str
         "SELECT * FROM pipeline_health ORDER BY obs_night DESC LIMIT ?", (n,)
     ).fetchall()
     return [dict(r) for r in reversed(rows)]
+
+
+def nights_for_cadence(conn: sqlite3.Connection, n: int = 14) -> list[dict[str, Any]]:
+    """Cadence-bar-ready health rows. Tags the most-recent row ``is_tonight``.
+
+    Shape matches what `dashboard.lib.cadence.cadence_bar_svg` expects:
+    ``{"obs_night": str, "tracklets": int, "alerts": int, "is_tonight": bool}``.
+    """
+    rows = last_n_nights_health(conn, n=n)
+    if not rows:
+        return []
+    out = []
+    last_idx = len(rows) - 1
+    for i, r in enumerate(rows):
+        out.append({
+            "obs_night": r.get("obs_night") or "",
+            "tracklets": int(r.get("tracklets_linked") or 0),
+            "alerts":    int(r.get("alerts_ingested") or 0),
+            "is_tonight": i == last_idx,
+        })
+    return out
+
+
+def detections_for_skymap(
+    conn: sqlite3.Connection,
+    limit: int = 1000,
+) -> list[dict[str, Any]]:
+    """Return recent detection rows shaped for `all_sky_svg`.
+
+    Shape: ``{"ra_deg": float, "dec_deg": float, "band": str, "flagged": bool}``.
+    A detection is ``flagged`` iff it belongs to a tracklet that landed in the
+    watch_list with status ``new`` or ``defer`` (not yet resolved).
+    """
+    rows = conn.execute(
+        """
+        SELECT d.ra AS ra_deg, d.dec AS dec_deg, d.band,
+               CASE
+                 WHEN w.entry_id IS NOT NULL THEN 1
+                 ELSE 0
+               END AS flagged
+        FROM detections d
+        LEFT JOIN tracklets t
+          ON t.detection_ids_json LIKE ('%' || d.detection_id || '%')
+        LEFT JOIN watch_list w
+          ON w.tracklet_id = t.tracklet_id
+         AND w.status IN ('new','defer')
+        ORDER BY d.mjd DESC
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def tracklet_population_rails(
+    conn: sqlite3.Connection, exclude_orbit_fit_id: int | None = None
+) -> dict[str, list[float]]:
+    """Tonight's population for e / |A1| / fit_rms strip-plots.
+
+    Returns a dict of column → list of values across all orbit_fits recorded
+    in the current DB, optionally excluding one entry (the one being viewed).
+    Used by the Candidate canvas to show how a flagged entry sits against the
+    population of other tracklets this pipeline saw.
+    """
+    q = "SELECT orbit_fit_id, e, A1, fit_rms FROM orbit_fits"
+    rows = conn.execute(q).fetchall()
+    out = {"e": [], "A1_abs": [], "fit_rms": []}
+    for r in rows:
+        if exclude_orbit_fit_id is not None and r["orbit_fit_id"] == exclude_orbit_fit_id:
+            continue
+        if r["e"] is not None:
+            out["e"].append(float(r["e"]))
+        if r["A1"] is not None:
+            try:
+                out["A1_abs"].append(abs(float(r["A1"])))
+            except (TypeError, ValueError):
+                pass
+        if r["fit_rms"] is not None:
+            out["fit_rms"].append(float(r["fit_rms"]))
+    return out
 
 
 # ---- Watch list ------------------------------------------------------------

@@ -1,42 +1,47 @@
-"""Pipeline Health — ingest lag, linking, orbit fits, health pills.
+"""Health — pipeline ingest / linking / orbit-fit telemetry.
 
-Secondary page per docs/ux/brief.md §3.5 — should be boring on a healthy
-night. No red alarms. Reuses the decision palette for health pills so the
-user only has to learn four colors across the whole product.
+Secondary destination (ADR-0014). On a healthy rig this page is boring by
+design — no red alarms, just six sparklines and a stage-status column.
+Renamed from "Pipeline Health" to "Health" to match the 3-pill top nav.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import html as _html
 
 import streamlit as st
 
 from lib import db
-from lib.components import (
-    health_sparkline_html,
-    page_header_html,
+from lib.components import health_sparkline_html
+from lib.theme import (
+    health_pill,
+    inject_theme,
+    provenance_chips_for,
+    top_nav,
 )
-from lib.theme import inject_theme, sidebar_footer, wordmark_sidebar
 
 
 st.set_page_config(
-    page_title="Rubin Anomaly Hunter — Pipeline Health",
+    page_title="Rubin Anomaly Hunter — Health",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 inject_theme()
 
-with st.sidebar:
-    wordmark_sidebar()
 
 conn = db.get_connection()
 summary = db.tonight_summary(conn)
-sidebar_footer(summary["window_state"], summary["config_tag"])
+ds_info = db.data_source_info(conn)
+
+st.html(top_nav("Health", provenance=provenance_chips_for(ds_info)))
 
 now = dt.datetime.now().strftime("%a %Y-%m-%d · %H:%M")
-st.markdown(
-    page_header_html("Pipeline Health", now_line=now, meta_line=summary["config_tag"]),
-    unsafe_allow_html=True,
+st.html(
+    '<header class="page-head">'
+    '<h1 class="page-head__title">Health</h1>'
+    f'<p class="page-head__meta mono-sm">{_html.escape(now)}  ·  {_html.escape(summary["config_tag"])}</p>'
+    '</header>'
 )
 
 
@@ -55,12 +60,11 @@ if not rows:
     st.stop()
 
 latest = rows[-1]
-alerts_ingested = [r["alerts_ingested"] for r in rows]
+alerts_ingested  = [r["alerts_ingested"]  for r in rows]
 tracklets_linked = [r["tracklets_linked"] for r in rows]
-orbit_ok = [r["orbit_fits_ok"] for r in rows]
-orbit_fail = [r["orbit_fits_failed"] for r in rows]
-dropped = [r["dropped_alerts"] for r in rows]
-lag_values = [r["ingest_lag_s_p95"] for r in rows]
+orbit_ok         = [r["orbit_fits_ok"]    for r in rows]
+orbit_fail       = [r["orbit_fits_failed"] for r in rows]
+lag_values       = [r["ingest_lag_s_p95"] for r in rows]
 
 
 def _dropped_rate(r: dict) -> float:
@@ -71,26 +75,23 @@ def _dropped_rate(r: dict) -> float:
 drop_rates = [_dropped_rate(r) for r in rows]
 
 
-# ---- Current state tiles --------------------------------------------------
-
 def _health_for_lag(v: float) -> str:
-    if v < 60:
-        return "ok"
-    if v < 180:
-        return "warn"
+    if v < 60:   return "ok"
+    if v < 180:  return "warn"
     return "error"
 
 
 def _health_for_drop(v: float) -> str:
-    if v < 0.1:
-        return "ok"
-    if v < 1.0:
-        return "warn"
+    if v < 0.1:  return "ok"
+    if v < 1.0:  return "warn"
     return "error"
 
 
-state_lag = _health_for_lag(latest["ingest_lag_s_p95"])
+state_lag  = _health_for_lag(latest["ingest_lag_s_p95"])
 state_drop = _health_for_drop(_dropped_rate(latest))
+
+
+# ---- 6 sparklines in a 2x3 grid -----------------------------------------
 
 col1, col2 = st.columns(2, gap="large")
 with col1:
@@ -140,7 +141,9 @@ with col4:
 
 col5, col6 = st.columns(2, gap="large")
 with col5:
-    fit_ok_rate = latest["orbit_fits_ok"] / max((latest["orbit_fits_ok"] + latest["orbit_fits_failed"]), 1) * 100.0
+    fit_ok_rate = latest["orbit_fits_ok"] / max(
+        (latest["orbit_fits_ok"] + latest["orbit_fits_failed"]), 1
+    ) * 100.0
     st.markdown(
         health_sparkline_html(
             metric="Orbit fits OK (14-night)",
@@ -162,33 +165,35 @@ with col6:
     )
 
 
-# ---- Stage status dots ---------------------------------------------------
+# ---- Stage status list ---------------------------------------------------
 
 st.markdown(
     '<div class="data-label u-mt-8">Last successful stage</div>',
     unsafe_allow_html=True,
 )
 
-stages = [
-    ("ingest", "ok"),
-    ("pre-filter", "ok"),
-    ("detection DB commit", "ok"),
-    ("heliolinc3d link (mock)", "warn"),
-    ("find_orb fit (mock)", "warn"),
-    ("MPC xmatch", "ok"),
-    ("threshold eval", "ok"),
-]
+# Detect mock-mode from the most recent pipeline_health note.
+notes = (latest.get("notes") or "").lower()
+link_state = "warn" if "linking=mock" in notes else "ok"
+fit_state  = "warn" if "fit=mock"     in notes else "ok"
 
-from lib.theme import health_pill
+stages = [
+    ("ingest",                      "ok"),
+    ("pre-filter",                  "ok"),
+    ("detection DB commit",         "ok"),
+    ("heliolinc3d link",            link_state),
+    ("find_orb fit",                fit_state),
+    ("MPC xmatch",                  "ok"),
+    ("threshold eval",              "ok"),
+]
 
 rows_html = []
 for label, state in stages:
     rows_html.append(
-        '<div style="display:flex; justify-content:space-between; align-items:center;'
-        ' padding:var(--sp-3) 0; border-bottom: 1px solid var(--divider);">'
-        f'<span class="mono" style="color:var(--text-primary);">{label}</span>'
-        f"{health_pill(state)}"
-        "</div>"
+        '<div class="health-stage-row">'
+        f'<span class="mono">{_html.escape(label)}</span>'
+        f'{health_pill(state)}'
+        '</div>'
     )
 
 st.markdown(
@@ -197,15 +202,24 @@ st.markdown(
 )
 
 
-# ---- Window + config banner ----------------------------------------------
+# ---- Window + config footer ---------------------------------------------
 
-st.markdown(
-    f'<p class="mono-sm u-mt-8" style="color: var(--text-tertiary);">'
-    f'pipeline window: <strong>{summary["window_state"]}</strong> · '
-    f'thresholds: <strong>{summary["config_tag"]}</strong><br/>'
-    f"linking + orbit fits currently running in <strong>mock mode</strong> "
-    f"because the find_orb and heliolinc3d binaries are not installed. Install them "
-    f"to enable science-grade output (see PRD §12)."
-    "</p>",
-    unsafe_allow_html=True,
-)
+if link_state == "warn" or fit_state == "warn":
+    st.markdown(
+        f'<p class="mono-sm u-mt-8 u-tertiary">'
+        f'pipeline window: <strong>{summary["window_state"]}</strong> · '
+        f'thresholds: <strong>{summary["config_tag"]}</strong>'
+        f'<br/>linking / orbit fits running in <strong>mock mode</strong> '
+        f"because the heliolinc3d / find_orb binaries are not installed. Install them "
+        f"(WSL2 on Windows) to enable science-grade output (PRD §12)."
+        "</p>",
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        f'<p class="mono-sm u-mt-8 u-tertiary">'
+        f'pipeline window: <strong>{summary["window_state"]}</strong> · '
+        f'thresholds: <strong>{summary["config_tag"]}</strong>'
+        '</p>',
+        unsafe_allow_html=True,
+    )

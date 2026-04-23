@@ -17,7 +17,11 @@ Ordered log of substantive decisions made on this project, with reasoning for ea
 | [0009](0009-own-detection-history-layer.md) | Own detection-history layer | Accepted | 2026-04-22 |
 | [0010](0010-alert-only-no-rsp-access.md) | Alert-stream-only access (no RSP/Butler/DP1) | Accepted | 2026-04-22 |
 | [0011](0011-mission-control-modern-visual-direction.md) | Mission-Control Modern visual direction (supersedes Observatory Night-Log) | Accepted | 2026-04-22 |
-| [0012](0012-narrative-first-information-architecture.md) | Narrative-first IA on Candidate Detail | Accepted | 2026-04-22 |
+| [0012](0012-narrative-first-information-architecture.md) | Narrative-first IA on Candidate Detail | Superseded by ADR-0014 | 2026-04-22 |
+| [0013](0013-lasair-rest-interim-ingest.md) | Lasair-LSST REST as interim ingest path (bridge to Fink Kafka) | Accepted | 2026-04-22 |
+| [0014](0014-single-surface-master-detail-ia.md) | Single-surface master-detail IA (Tonight · Ledger · Health); supersedes ADR-0012 | Accepted | 2026-04-23 |
+| [0015](0015-display-typography-plex-sans.md) | Display typography: Plex Sans, sentence case; amends ADR-0011 | Accepted | 2026-04-23 |
+| [0016](0016-fink-kafka-primary-ingest.md) | Fink Kafka as primary ingest; Lasair REST demoted to fallback | Accepted | 2026-04-23 |
 
 ## Maintenance
 
