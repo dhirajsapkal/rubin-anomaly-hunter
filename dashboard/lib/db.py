@@ -93,6 +93,7 @@ def list_watch_list(
     q = (
         "SELECT w.entry_id, w.category, w.tracklet_id, w.orbit_fit_id, "
         "       w.created_utc, w.status, w.mpc_crossmatch, w.notes, "
+        "       w.null_test_results_json, "
         "       t.num_nights, t.total_arc_hours, "
         "       o.a_au, o.e, o.incl_deg, o.perihelion_au, o.aphelion_au, "
         "       o.A1, o.A2, o.A3, o.sigma_e, o.n_obs, o.fit_rms "
@@ -112,7 +113,15 @@ def list_watch_list(
     if clauses:
         q += " WHERE " + " AND ".join(clauses)
     q += " ORDER BY w.created_utc DESC"
-    return [dict(r) for r in conn.execute(q, params).fetchall()]
+    rows = [dict(r) for r in conn.execute(q, params).fetchall()]
+    # Parse null-test results so narrative.generate_why_flagged can use them
+    for r in rows:
+        raw = r.get("null_test_results_json") or "{}"
+        try:
+            r["null_tests"] = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            r["null_tests"] = {}
+    return rows
 
 
 def get_watch_list_entry(conn: sqlite3.Connection, entry_id: int) -> dict[str, Any] | None:

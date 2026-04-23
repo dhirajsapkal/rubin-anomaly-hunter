@@ -8,14 +8,17 @@ A personal-scale anomaly-detection pipeline over the Vera C. Rubin Observatory (
 
 ## Current state
 
-Pre-implementation. Only documentation exists:
+Working dashboard against a synthetic demo dataset. No live alert stream yet.
 
 - `PRD.md` — full product requirements document
-- `docs/decisions/` — architecture decision records (ADRs) explaining *why* each commitment was made
+- `docs/decisions/` — 12 ADRs explaining *why* each commitment was made
 - `docs/decisions/README.md` — index of decisions
-- `docs/decisions/template.md` — template for new ADRs
+- `SESSION_HANDOFF.md` — fast-read handoff brief from the most recent session (read after this file)
+- `dashboard/` — Streamlit multipage app (5 pages) — run with `streamlit run dashboard/app.py`
+- `src/rubin_hunter/` — pipeline scaffold (ingest, detection DB, linking + orbit-fit wrappers in mock mode, scoring, gate, synthetic demo generator)
+- `data/demo.sqlite` — deterministic synthetic dataset; regen via `python scripts/make_demo_db.py`
 
-No source code yet. Implementation begins with milestone M0 in PRD §13.
+Live data ingestion (Fink / Lasair) is not yet wired up — begins with milestone M0 in PRD §13.
 
 ## Source of truth
 
@@ -37,6 +40,8 @@ Do not violate these without first writing a new ADR that explicitly supersedes 
 5. **No pixel-level Rubin data.** Project is alert-stream-only. RSP / Butler / DP1 are out of scope — we are not a data-rights holder. (ADR-0010)
 6. **Dark comets primary, ISOs secondary.** Do not refactor the pipeline to treat ISOs as primary; the physics of alert-only orbit closure makes ISO-primary infeasible. (ADR-0004)
 7. **Rubin primary, ZTF calibration-only.** ZTF data never drives a watch-list promotion. (ADR-0003)
+8. **Dashboard IA is narrative-first.** Candidate Detail reads narrative → reasoning → evidence → data → media → decision. Do not re-order to put orbit-fit numbers above the "What's weird" narrative panel. (ADR-0012)
+9. **Mission-Control Modern visual direction is locked.** IBM Plex Mono + IBM Plex Sans, `#FFB020` electric amber accent, no serifs, no `backdrop-filter`, no `color-mix()` in production CSS. Changes require a new ADR. (ADR-0011)
 
 ## Decision-record maintenance protocol
 
@@ -69,14 +74,32 @@ External docs referenced throughout the project:
 - 3I/ATLAS Rubin commissioning paper: arXiv:2507.13409 (validation target)
 - MPC Explorer: https://www.minorplanetcenter.net/db_search
 
-## Once implementation begins
+## Running the dashboard
 
-This section is a placeholder; populate when code lands.
+```
+pip install -e ".[dashboard]"
+python scripts/make_demo_db.py    # seeds data/demo.sqlite (deterministic)
+streamlit run dashboard/app.py    # or: scripts\run_dashboard.bat
+```
 
-- Build / install commands
-- How to run the pipeline for a single night's alerts
-- How to run a specific test (single pytest invocation)
-- How to run the retrospective injection harness
-- How to replay archived Rubin or ZTF alerts
-- Where the detection DB and raw alert archive live on disk
-- Architecture notes for non-obvious subsystems: tracklet-linking subprocess wrapper, `find_orb` subprocess wrapper, HEALPix bucketing scheme, broker-flag snapshot semantics
+Open `http://localhost:8501/` (or whichever port Streamlit prints). Five pages: Tonight (home), Watch List, Candidate Detail (deep-linked), Archive, Pipeline Health.
+
+Narrative generator lives at `dashboard/lib/narrative.py`. Theme split between `dashboard/static/theme.css` and `dashboard/lib/theme.py` `_STREAMLIT_OVERRIDES`.
+
+## Pipeline (not yet live)
+
+Architecture notes for when live ingest lands (PRD §6, §13 M0):
+
+- Ingest: `src/rubin_hunter/ingest/fink_consumer.py` (Kafka via `fink-client`) + `persistence.py` (Parquet per-UTC-day, raw AVRO bytes preserved per ADR-0009).
+- Detection DB: `src/rubin_hunter/detection_db/schema.py` (SQLite + HEALPix bucket index via `healpix_index.py`).
+- Tracklet linking: `src/rubin_hunter/linking/heliolinc3d_wrapper.py` — subprocess wrapper (ADR-0007). Runs in mock mode if binary absent. WSL2 fallback documented for Windows.
+- Orbit fitting: `src/rubin_hunter/orbit/find_orb_wrapper.py` — subprocess wrapper (ADR-0008). **Never commit find_orb binaries or ephemeris files.** Runs in mock mode if binary absent.
+- Gate: `src/rubin_hunter/gate/watch_list.py` enforces the two-stage gate (ADR-0005). **Never** sets `status='promoted'` directly — only the dashboard's Promote-to-candidate action with attached evidence can promote.
+- Scoring: `src/rubin_hunter/scoring/dark_comet.py` + `iso.py` evaluate the commissioning thresholds.
+
+## Common tasks
+
+- **Regen demo DB:** `python scripts/make_demo_db.py`
+- **Run all pages exception-free (CI-ish):** use `streamlit.testing.v1.AppTest` per page (see examples in prior session notes)
+- **Add an ADR:** copy `docs/decisions/template.md`, number sequentially, add index entry, commit together
+- **Visual QA:** Playwright MCP (install via `claude mcp add playwright -- npx @playwright/mcp@latest` then restart Claude Code) — browser tools become available for screenshot/console/interaction testing

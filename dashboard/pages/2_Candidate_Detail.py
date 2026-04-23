@@ -22,12 +22,15 @@ from lib.components import (
     archive_row_html,  # noqa: F401  # reserved for decision-history strip
     cutouts_strip_html,
     empty_state_html,
+    hypotheses_panel_html,
     light_curve_frame_html,
     null_hypothesis_panel,
     orbit_fit_block,
     orbit_frame_html,
     page_header_html,
+    why_flagged_panel_html,
 )
+from lib.narrative import generate_hypotheses, generate_why_flagged
 from lib.theme import (
     inject_theme,
     kind_pill,
@@ -218,11 +221,29 @@ mpc_html = (
     f"{html.escape(mpc_text)}</div>"
 )
 
-# Build the paper card body
-card_body = (
-    '<div class="card-paper">'
+# ---- Narrative: WHAT'S WEIRD + WHAT IT COULD BE -------------------------
+# This block comes before the technical data. The IA is narrative → reasoning →
+# evidence → data, not the other way around.
+
+why = generate_why_flagged(entry)
+hypotheses = generate_hypotheses(entry)
+
+narrative_block = (
+    '<div class="card-paper card-paper--narrative">'
     f"{header_row}"
     f"{tracklet_meta}"
+    f"{why_flagged_panel_html(why)}"
+    f"{hypotheses_panel_html(hypotheses)}"
+    "</div>"
+)
+st.markdown(narrative_block, unsafe_allow_html=True)
+
+
+# ---- Evidence panel: null tests + orbit fit + cutouts -------------------
+
+evidence_block = (
+    '<div class="card-paper u-mt-6">'
+    '<div class="data-label data-label--paper" style="margin-bottom: var(--sp-2);">EVIDENCE &amp; DATA</div>'
     f"{null_hypothesis_panel(entry.get('null_tests', {}))}"
     '<hr class="divider-paper">'
     f"{orbit_fit_block(entry)}"
@@ -231,7 +252,7 @@ card_body = (
     "</div>"
 )
 
-st.markdown(card_body, unsafe_allow_html=True)
+st.markdown(evidence_block, unsafe_allow_html=True)
 
 
 # ---- Orbit + light curve side-by-side ------------------------------------

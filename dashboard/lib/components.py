@@ -21,6 +21,14 @@ from .mockimg import (
     orbit_svg,
     sparkline_svg,
 )
+from .narrative import (
+    ORBITAL_ELEMENT_GLOSSARY,
+    Hypothesis,
+    Trigger,
+    WhyFlagged,
+    generate_hypotheses,
+    generate_why_flagged,
+)
 from .theme import kind_pill, status_pill
 
 
@@ -67,6 +75,49 @@ def summary_tile(
     )
 
 
+def hero_tonight_html(
+    total_new: int,
+    new_dark_comet: int,
+    new_iso: int,
+    verdict_line: str,
+    secondary: str = "",
+) -> str:
+    """Hero block for the Tonight page — oversized mono numeric in amber."""
+    is_zero = total_new == 0
+    zero_cls = " is-zero" if is_zero else ""
+    # Always at least two digits to give the numeral typographic weight
+    numeric = f"{total_new:02d}"
+    breakdown_parts = []
+    if new_dark_comet:
+        breakdown_parts.append(f"{new_dark_comet:02d} DARK COMET")
+    if new_iso:
+        breakdown_parts.append(f"{new_iso:02d} ISO")
+    breakdown = "  ·  ".join(breakdown_parts) or "QUIET"
+    return (
+        f'<section class="hero-tonight{zero_cls}">'
+        f'  <div class="hero-numeric">{numeric}</div>'
+        f'  <div class="hero-body">'
+        f'    <div class="hero-label">WATCH LIST · NEW SINCE LAST VISIT</div>'
+        f'    <div class="hero-verdict">{html.escape(verdict_line)}</div>'
+        f'    <div class="hero-breakdown">{html.escape(breakdown)}{"  ·  " + html.escape(secondary) if secondary else ""}</div>'
+        f"  </div>"
+        f"</section>"
+    )
+
+
+def telemetry_bar_html(segments: list[tuple[str, str, str]]) -> str:
+    """Top-of-page status bar. Each segment = (state, label, value) where state
+    is one of 'ok', 'warn', 'err', or '' for neutral."""
+    parts = []
+    for state, label, value in segments:
+        cls = f"seg {state}" if state else "seg"
+        val_html = f'<span class="val">{html.escape(value)}</span>' if value else ""
+        parts.append(
+            f'<span class="{cls}">{html.escape(label)}{" · " if value else ""}{val_html}</span>'
+        )
+    return '<div class="telemetry-bar">' + "".join(parts) + "</div>"
+
+
 def sparkline_tile(label: str, values: list[float], current_text: str = "") -> str:
     svg = sparkline_svg(values)
     return (
@@ -96,6 +147,15 @@ def _shorten_mpc(mpc: str, width: int = 28) -> str:
     return mpc[:cut] + "…"
 
 
+def _short_whatsweird(entry: dict[str, Any]) -> str:
+    """One-line 'what's weird' summary for watch-list row secondary line."""
+    try:
+        why = generate_why_flagged(entry)
+    except Exception:
+        return ""
+    return why.headline.lower()
+
+
 def watch_list_row_html(entry: dict[str, Any]) -> str:
     kind = entry.get("category", "")
     kind_css = kind.replace("_", "-")
@@ -108,9 +168,6 @@ def watch_list_row_html(entry: dict[str, Any]) -> str:
     rms_text = f"rms {fit_rms:.2f}″" if isinstance(fit_rms, (int, float)) else ""
     status = (entry.get("status") or "new").lower()
 
-    # Only show new / defer states on the Watch List page — terminal statuses
-    # (accepted / rejected / promoted) belong on the Archive page and must never
-    # render "CANDIDATE" text here (ADR-0005 + QA B3).
     if status not in {"new", "defer", "deferred"}:
         status = "new"
 
@@ -120,19 +177,23 @@ def watch_list_row_html(entry: dict[str, Any]) -> str:
         mpc_mark = " is-mpc-match"
 
     badge_label = "DARK COMET" if kind == "dark_comet" else "ISO"
-    # Absolute link to the Candidate Detail page — relative hrefs break when
-    # this row is rendered on /Watch_List (QA H3).
     href = f"/Candidate_Detail?entry_id={entry['entry_id']}"
+
+    whatsweird = _short_whatsweird(entry)
+
     return (
         f'<a class="wle-row{mpc_mark}" href="{href}" target="_self">'
-        f'  <span class="kind-dot kind-dot--{kind_css}"></span>'
-        f'  <span class="kind-badge kind-badge--{kind_css}">{badge_label}</span>'
-        f'  <span class="wle-id">{internal}</span>'
-        f'  <span class="wle-meta">{html.escape(date)}</span>'
-        f'  <span class="wle-meta">{n_obs} det / {n_nights}n</span>'
-        f'  <span class="wle-meta">MPC: {html.escape(mpc_text)}</span>'
-        f'  <span class="wle-meta">{rms_text}</span>'
-        f'  <span class="wle-meta">{status_pill(status)}</span>'
+        f'  <div class="wle-row__main">'
+        f'    <span class="kind-dot kind-dot--{kind_css}"></span>'
+        f'    <span class="kind-badge kind-badge--{kind_css}">{badge_label}</span>'
+        f'    <span class="wle-id">{internal}</span>'
+        f'    <span class="wle-meta">{html.escape(date)}</span>'
+        f'    <span class="wle-meta">{n_obs} det / {n_nights}n</span>'
+        f'    <span class="wle-meta">MPC: {html.escape(mpc_text)}</span>'
+        f'    <span class="wle-meta">{rms_text}</span>'
+        f'    <span class="wle-meta">{status_pill(status)}</span>'
+        f'  </div>'
+        f'  <div class="wle-row__whatsweird">{html.escape(whatsweird)}</div>'
         "</a>"
     )
 
@@ -207,6 +268,12 @@ def null_hypothesis_panel(tests: dict[str, str]) -> str:
 # -------- Orbit fit block --------------------------------------------------
 
 def orbit_fit_block(entry: dict[str, Any]) -> str:
+    """Orbit fit rendered as a two-column grid: value + plain-language annotation.
+
+    Each row explains what the symbol means in a way a hobbyist astronomer can
+    scan without remembering their undergrad mechanics. Glossary lives in
+    narrative.ORBITAL_ELEMENT_GLOSSARY.
+    """
     def fmt(v: Any, unit: str = "", prec: int = 3) -> str:
         if v is None:
             return "—"
@@ -231,24 +298,129 @@ def orbit_fit_block(entry: dict[str, Any]) -> str:
     if sigma_e:
         e_txt += f"  ± {float(sigma_e):.3f}"
 
-    lines = [
-        f"a   = {fmt(entry.get('a_au'), ' AU', 2):<14} e = {e_txt}",
-        f"i   = {fmt(entry.get('incl_deg'), '°', 2):<14} q = {fmt(entry.get('perihelion_au'), ' AU', 2)}",
-        f"Q   = {fmt(entry.get('aphelion_au'), ' AU', 2)}",
-        f"A1  = {sci(entry.get('A1'), entry.get('sigma_A1'), 'AU/d²')}",
-        f"A2  = {sci(entry.get('A2'), entry.get('sigma_A2'), 'AU/d²')}",
-        f"A3  = {sci(entry.get('A3'), entry.get('sigma_A3'), 'AU/d²')}",
-        f"rms = {fmt(entry.get('fit_rms'), ' arcsec', 3):<14} n_obs = {entry.get('n_obs') or '—'}",
-        f"software = {entry.get('software_version') or '—'}",
+    rows: list[tuple[str, str, str]] = [
+        ("a",   fmt(entry.get('a_au'), ' AU', 2),           ORBITAL_ELEMENT_GLOSSARY["a"]),
+        ("e",   e_txt,                                       ORBITAL_ELEMENT_GLOSSARY["e"]),
+        ("i",   fmt(entry.get('incl_deg'), '°', 2),          ORBITAL_ELEMENT_GLOSSARY["i"]),
+        ("q",   fmt(entry.get('perihelion_au'), ' AU', 2),   ORBITAL_ELEMENT_GLOSSARY["q"]),
+        ("Q",   fmt(entry.get('aphelion_au'), ' AU', 2),     ORBITAL_ELEMENT_GLOSSARY["Q"]),
+        ("A1",  sci(entry.get('A1'), entry.get('sigma_A1'), 'AU/d²'),  ORBITAL_ELEMENT_GLOSSARY["A1"]),
+        ("A2",  sci(entry.get('A2'), entry.get('sigma_A2'), 'AU/d²'),  ORBITAL_ELEMENT_GLOSSARY["A2"]),
+        ("A3",  sci(entry.get('A3'), entry.get('sigma_A3'), 'AU/d²'),  ORBITAL_ELEMENT_GLOSSARY["A3"]),
+        ("rms", fmt(entry.get('fit_rms'), ' arcsec', 3),     ORBITAL_ELEMENT_GLOSSARY["rms"]),
     ]
-    inner = "\n".join(html.escape(line) for line in lines)
+
+    row_html = "".join(
+        f'<div class="orbit-fit__row">'
+        f'<span class="orbit-fit__symbol">{html.escape(sym)}</span>'
+        f'<span class="orbit-fit__value">{html.escape(value)}</span>'
+        f'<span class="orbit-fit__gloss">{html.escape(gloss)}</span>'
+        "</div>"
+        for sym, value, gloss in rows
+    )
+
+    software = entry.get('software_version') or '—'
+    n_obs = entry.get('n_obs') or '—'
     return (
-        '<div class="data-label data-label--paper">Orbit fit (find_orb, Marsden A1/A2/A3)</div>'
-        f'<pre class="data-block data-block--paper">{inner}</pre>'
+        '<div class="data-label data-label--paper">Orbit fit — find_orb, Marsden A1/A2/A3</div>'
+        f'<div class="orbit-fit-grid">{row_html}</div>'
+        f'<div class="orbit-fit__provenance">'
+        f'{n_obs} detections · {html.escape(str(software))}'
+        f"</div>"
     )
 
 
 # -------- Cutouts strip ---------------------------------------------------
+
+def why_flagged_panel_html(why: WhyFlagged) -> str:
+    """The narrative panel at the top of Candidate Detail: 'what's weird about this'."""
+    paragraphs_html = "".join(
+        f'<p class="why-flagged__para">{html.escape(p)}</p>'
+        for p in why.summary_paragraphs
+    )
+    trigger_rows = []
+    for t in why.triggers:
+        glyph = "✓" if t.passed else "△"
+        row_cls = "why-flagged__trigger is-pass" if t.passed else "why-flagged__trigger is-warn"
+        threshold_html = (
+            f'<span class="why-flagged__trigger-threshold">{html.escape(t.threshold)}</span>'
+            if t.threshold else ""
+        )
+        trigger_rows.append(
+            f'<li class="{row_cls}">'
+            f'<span class="why-flagged__trigger-glyph">{glyph}</span>'
+            f'<span class="why-flagged__trigger-label">{html.escape(t.label)}</span>'
+            f'<span class="why-flagged__trigger-value">{html.escape(t.observed)}</span>'
+            f'{threshold_html}'
+            "</li>"
+        )
+    triggers_html = (
+        '<div class="why-flagged__triggers-title">EVIDENCE BEHIND THE FLAG</div>'
+        f'<ul class="why-flagged__triggers">{"".join(trigger_rows)}</ul>'
+        if trigger_rows else ""
+    )
+    return (
+        '<section class="why-flagged">'
+        '<div class="why-flagged__label">WHAT\'S WEIRD ABOUT THIS</div>'
+        f'<h2 class="why-flagged__headline">{html.escape(why.headline)}</h2>'
+        f'<div class="why-flagged__body">{paragraphs_html}</div>'
+        f'{triggers_html}'
+        "</section>"
+    )
+
+
+_LIKELIHOOD_LABELS = {
+    "leading":    ("LEADING",    "hyp-leading"),
+    "plausible":  ("PLAUSIBLE",  "hyp-plausible"),
+    "unlikely":   ("UNLIKELY",   "hyp-unlikely"),
+    "systematic": ("SYSTEMATIC", "hyp-systematic"),
+}
+
+
+def hypotheses_panel_html(hypotheses: list[Hypothesis]) -> str:
+    """Ranked hypothesis list. First one (leading) is open by default; others
+    collapsed via native <details>. No JS."""
+    if not hypotheses:
+        return ""
+
+    def _hypothesis_card(h: Hypothesis, is_first: bool) -> str:
+        label, pill_cls = _LIKELIHOOD_LABELS.get(h.likelihood, ("—", ""))
+
+        def _bullets(items: list[str], title: str) -> str:
+            if not items:
+                return ""
+            lis = "".join(f"<li>{html.escape(x)}</li>" for x in items)
+            return (
+                f'<div class="hyp__bullets-title">{html.escape(title)}</div>'
+                f'<ul class="hyp__bullets">{lis}</ul>'
+            )
+
+        open_attr = " open" if is_first else ""
+        return (
+            f'<details class="hyp-card"{open_attr}>'
+            f'<summary class="hyp-card__summary">'
+            f'<span class="hyp-card__pill {pill_cls}">{html.escape(label)}</span>'
+            f'<span class="hyp-card__name">{html.escape(h.name)}</span>'
+            f'<span class="hyp-card__tagline">{html.escape(h.tagline)}</span>'
+            f'<span class="hyp-card__chevron">▾</span>'
+            f'</summary>'
+            f'<div class="hyp-card__body">'
+            f'<p class="hyp-card__desc">{html.escape(h.description)}</p>'
+            f'{_bullets(h.supports, "SUPPORTS")}'
+            f'{_bullets(h.would_confirm, "WOULD CONFIRM")}'
+            f'{_bullets(h.would_refute, "WOULD REFUTE")}'
+            f'</div>'
+            f'</details>'
+        )
+
+    cards = "".join(_hypothesis_card(h, i == 0) for i, h in enumerate(hypotheses))
+    return (
+        '<section class="hypotheses">'
+        '<div class="hypotheses__label">WHAT IT COULD BE</div>'
+        f'<div class="hypotheses__list">{cards}</div>'
+        "</section>"
+    )
+
 
 def cutouts_strip_html(entry_id: int, n_epochs: int = 4) -> str:
     stamps = ("science", "template", "difference")

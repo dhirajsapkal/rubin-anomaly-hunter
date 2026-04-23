@@ -16,6 +16,8 @@ Ordered log of substantive decisions made on this project, with reasoning for ea
 | [0008](0008-find-orb-for-orbit-fitting.md) | find_orb for hyperbolic + non-grav orbit fitting | Accepted | 2026-04-22 |
 | [0009](0009-own-detection-history-layer.md) | Own detection-history layer | Accepted | 2026-04-22 |
 | [0010](0010-alert-only-no-rsp-access.md) | Alert-stream-only access (no RSP/Butler/DP1) | Accepted | 2026-04-22 |
+| [0011](0011-mission-control-modern-visual-direction.md) | Mission-Control Modern visual direction (supersedes Observatory Night-Log) | Accepted | 2026-04-22 |
+| [0012](0012-narrative-first-information-architecture.md) | Narrative-first IA on Candidate Detail | Accepted | 2026-04-22 |
 
 ## Maintenance
 
