@@ -17,10 +17,28 @@ from typing import Any
 
 import streamlit as st
 
+from .rehydrate import RehydrateResult, ensure_live_db
+
 
 _DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 DEMO_DB_PATH = _DATA_DIR / "demo.sqlite"
 LIVE_DB_PATH = _DATA_DIR / "live.sqlite"
+
+
+@st.cache_resource(show_spinner="Fetching latest pipeline state…")
+def _rehydrate_once() -> RehydrateResult:
+    """Pull live.sqlite from the data branch once per Streamlit container.
+
+    No-op when ``RUBIN_HUNTER_REHYDRATE_URL`` isn't set (local dev). On
+    Streamlit Community Cloud, configure that env var to the raw URL of
+    ``data/live.sqlite`` on the orphan ``data`` branch — see ADR-0017.
+    """
+    return ensure_live_db(LIVE_DB_PATH)
+
+
+def rehydrate_status() -> RehydrateResult:
+    """Public accessor so Health/footer can show fetch provenance."""
+    return _rehydrate_once()
 
 
 def resolve_db_path() -> Path:
@@ -28,12 +46,15 @@ def resolve_db_path() -> Path:
 
     Resolution order:
       1. ``RUBIN_HUNTER_DB`` env var, if it points at a readable file.
-      2. ``data/live.sqlite`` if it exists AND holds any evidence of a real
+      2. Trigger a rehydrate-from-data-branch (ADR-0017) — no-op if the
+         remote-URL env var isn't set. May materialise ``data/live.sqlite``
+         on Streamlit Cloud cold-start.
+      3. ``data/live.sqlite`` if it exists AND holds any evidence of a real
          pipeline run (detections ingested, tracklets linked, pipeline_health
          logged). Empty-watch-list is fine — the honesty gate correctly
          rejects degenerate aggregate-only arcs; the dashboard should show
          that truth, not a synthetic demo.
-      3. ``data/demo.sqlite`` only when live has never run.
+      4. ``data/demo.sqlite`` only when live has never run.
 
     Live wins as soon as it reflects a real ingest. Demo remains the
     first-boot fallback so a fresh clone of the repo isn't empty.
@@ -43,6 +64,7 @@ def resolve_db_path() -> Path:
         p = Path(env)
         if p.exists():
             return p
+    _rehydrate_once()
     if LIVE_DB_PATH.exists():
         try:
             conn = sqlite3.connect(str(LIVE_DB_PATH))

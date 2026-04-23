@@ -1,0 +1,21 @@
+# Mission-Control Modern theme (ADR-0011 + ADR-0015).
+# Dark canvas, IBM Plex Mono + Plex Sans, electric-amber accent #FFB020.
+# This file is read by both local `streamlit run` and Streamlit Community Cloud.
+
+[theme]
+base = "dark"
+primaryColor = "#FFB020"          # electric amber accent
+backgroundColor = "#0B0D10"        # near-black canvas
+secondaryBackgroundColor = "#15181D"
+textColor = "#E6E8EB"
+font = "monospace"                 # nudge default sans toward Plex Mono feel;
+                                   # actual typography is set in lib/theme.py
+
+[server]
+headless = true
+runOnSave = false
+enableCORS = true
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false

@@ -106,6 +106,36 @@ Both wrappers run in **mock mode** when the binaries are absent, which is fine f
 - **find_orb** (Bill Gray, Project Pluto) — https://www.projectpluto.com/find_orb.htm. Source-available, **not OSI-open** — personal use only, never redistribute. See ADR-0008.
 - **heliolinc3d** — https://github.com/lsst-dm/heliolinc2. C++ build; WSL2 is an acceptable Windows fallback. See ADR-0007.
 
+## Running 24×7 in the cloud (free tier)
+
+Per **ADR-0017**, the project supports two runtimes. Local WSL2 is documented at `scripts/wsl/bootstrap.sh`. The cloud path runs unattended on GitHub Actions + Streamlit Community Cloud — no local Python or BIOS setup needed.
+
+### One-time operator setup
+
+1. **Push the repo to GitHub** (private is fine for GHA; public is needed for the free Streamlit Cloud tier).
+2. **Add the Fink credentials secret.** Settings → Secrets and variables → Actions → New repository secret:
+   - Name: `FINK_CLIENT_YAML`
+   - Value: paste the entire contents of your `fink-client` `credentials.yml` (register at https://fink-broker.readthedocs.io/en/latest/services/livestream/).
+3. **Allow workflow writes.** Settings → Actions → General → Workflow permissions → "Read and write permissions". The cron workflow uses the built-in `GITHUB_TOKEN` to push the orphan `data` branch.
+4. **Enable Actions.** Actions tab → "I understand my workflows" if first-time. Run `live-pipeline` once via "Run workflow" to seed the `data` branch (first run takes ~10–15 min building Bill Gray's stack; subsequent runs hit the cache and finish in ~3 min).
+5. **Deploy the dashboard** at https://share.streamlit.io → New app:
+   - Repository: your fork
+   - Branch: `main`
+   - Main file path: `dashboard/app.py`
+6. **Tell the dashboard where to fetch state.** In the Streamlit Cloud app's settings → Advanced → Secrets, add:
+   ```
+   RUBIN_HUNTER_REHYDRATE_URL = "https://raw.githubusercontent.com/<your-user>/<your-repo>/data/data/live.sqlite"
+   ```
+   (For private repos, use a personal access token with `repo` scope embedded in the URL — see Streamlit Cloud's docs on private-repo data access.)
+
+### How it works
+
+- `.github/workflows/pipeline.yml` runs every 4 hours. It builds find_orb from upstream source (cached between runs), pulls Fink alerts, runs linking + orbit-fit + scoring, and force-pushes the resulting `data/live.sqlite` + `data/archive/` to the orphan `data` branch.
+- The Streamlit Cloud dashboard fetches `data/live.sqlite` from the `data` branch on first request (`dashboard/lib/rehydrate.py`) and caches it in-container.
+- find_orb binaries are built per-run inside the GHA runner and never leave it. ADR-0008 invariant preserved.
+
+For a one-off pipeline run from the Actions tab, use the **Run workflow** button — accepts `since_days` and `max_messages` overrides.
+
 ## Contributing
 
 This is a personal project (ADR-0002). Issues and PRs are not expected. If you're a future Claude Code session working on it: read `CLAUDE.md` first, follow the ADR-maintenance protocol, and don't bundle `find_orb` anything.
