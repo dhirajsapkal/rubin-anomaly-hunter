@@ -23,6 +23,7 @@ Ordered log of substantive decisions made on this project, with reasoning for ea
 | [0015](0015-display-typography-plex-sans.md) | Display typography: Plex Sans, sentence case; amends ADR-0011 | Accepted | 2026-04-23 |
 | [0016](0016-fink-kafka-primary-ingest.md) | Fink Kafka as primary ingest; Lasair REST demoted to fallback | Accepted | 2026-04-23 |
 | [0017](0017-cloud-hosted-execution.md) | Cloud-hosted execution: GHA cron + Streamlit Community Cloud; amends ADR-0016 | Accepted | 2026-04-23 |
+| [0018](0018-hobbyist-first-reframing.md) | Hobbyist-first reframing of the single-surface IA; amends ADR-0014 | Accepted | 2026-04-24 |
 
 ## Maintenance
 
