@@ -136,8 +136,8 @@ else:
 
 st.markdown(
     '<p class="mono-sm u-mt-8 u-tertiary">'
-    "Ledger is append-only. Accepted / rejected / promoted are terminal states; "
-    "only deferred entries can be reopened (PRD §F10)."
+    "This is an append-only log. Accepted, rejected, and promoted entries "
+    "are terminal — only deferred entries can be reopened (PRD §F10)."
     '</p>',
     unsafe_allow_html=True,
 )
