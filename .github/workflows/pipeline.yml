@@ -128,12 +128,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$SRC_ROOT"
+          # Bill Gray's Makefiles default to PREFIX=~ (per-user install).
+          # GLOBAL=1 redirects both the -I/-L flags during compile and the
+          # install destinations to /usr/local, which is what the cache
+          # keys on. Must be passed to every invocation, not just install.
           build_lib() {
             local name="$1" url="$2" target="${3:-all}"
             local dir="$SRC_ROOT/$name"
             git clone --depth 1 "$url" "$dir"
-            make -C "$dir" "$target" -j"$(nproc)"
-            sudo make -C "$dir" install
+            make -C "$dir" "$target" GLOBAL=1 -j"$(nproc)"
+            sudo make -C "$dir" install GLOBAL=1
           }
           build_lib lunar    https://github.com/Bill-Gray/lunar    all
           build_lib jpl_eph  https://github.com/Bill-Gray/jpl_eph  all
@@ -142,7 +146,7 @@ jobs:
           # the cache covers it without a sudo install step.
           fo_dir="$SRC_ROOT/find_orb"
           git clone --depth 1 https://github.com/Bill-Gray/find_orb "$fo_dir"
-          make -C "$fo_dir" -j"$(nproc)"
+          make -C "$fo_dir" GLOBAL=1 -j"$(nproc)"
           sudo install -m 0755 "$fo_dir/fo" /usr/local/bin/fo
           /usr/local/bin/fo -h >/dev/null 2>&1 || true
           echo "find_orb built."
