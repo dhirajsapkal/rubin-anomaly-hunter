@@ -98,10 +98,18 @@ class FinkConsumer:
         topic: str,
         group_id: str,
         config_path: Path | None = None,
+        offset_reset: str = "latest",
     ) -> None:
         self.topic = topic
         self.group_id = group_id
         self.config_path = Path(config_path) if config_path else None
+        # "latest" (default) = only new messages after we subscribe.
+        # "earliest" = replay from the Kafka retention window's start —
+        # useful on a fresh group_id for a one-shot catch-up run. Honored
+        # only on the first offset-resolution for a new consumer group;
+        # once Kafka records a committed offset for the group, it reads
+        # from there regardless.
+        self.offset_reset = offset_reset
 
         self._live_consumer: Any | None = None
         self._offline: _OfflineState | None = None
@@ -174,6 +182,10 @@ class FinkConsumer:
         with self.config_path.open("r", encoding="utf-8") as fh:  # type: ignore[union-attr]
             config = yaml.safe_load(fh) or {}
         config["group_id"] = self.group_id
+        # auto.offset.reset is passed through to confluent-kafka. Applies
+        # only when the (group_id, topic, partition) tuple has no
+        # committed offset — e.g. a fresh replay group_id.
+        config["auto.offset.reset"] = self.offset_reset
         # fink-client takes a list of topics.
         return _FinkAlertConsumer(topics=[self.topic], config=config)
 

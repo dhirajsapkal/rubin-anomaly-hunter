@@ -71,6 +71,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--fink-max-messages", type=int, default=200)
     parser.add_argument("--fink-timeout-s", type=float, default=30.0)
     parser.add_argument(
+        "--fink-group-id",
+        default=os.environ.get("FINK_GROUP_ID", "rubin-hunter-personal"),
+        help="Kafka consumer-group id. Use a fresh id (e.g. "
+        "'rubin-hunter-replay-1234') combined with --fink-offset-reset=earliest "
+        "to replay messages still in Fink's Kafka retention window.",
+    )
+    parser.add_argument(
+        "--fink-offset-reset",
+        choices=("latest", "earliest"),
+        default=os.environ.get("FINK_OFFSET_RESET", "latest"),
+        help="auto.offset.reset for a NEW consumer group. 'latest' (default) "
+        "= only new messages after subscribe. 'earliest' = replay from the "
+        "start of Kafka's retention window — use for one-shot catch-up runs.",
+    )
+    parser.add_argument(
         "--log-level",
         choices=("DEBUG", "INFO", "WARNING", "ERROR"),
         default="INFO",
@@ -98,9 +113,11 @@ def main(argv: list[str] | None = None) -> int:
         limit=args.limit,
         ingest_mode=args.ingest,
         fink_topic=args.fink_topic,
+        fink_group_id=args.fink_group_id,
         fink_config_path=args.fink_config,
         fink_max_messages=args.fink_max_messages,
         fink_timeout_s=args.fink_timeout_s,
+        fink_offset_reset=args.fink_offset_reset,
     )
 
     print(json.dumps(stats.__dict__, indent=2, default=str))

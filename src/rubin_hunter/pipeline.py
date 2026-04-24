@@ -125,6 +125,7 @@ def run_once(
     fink_config_path: Path | None = None,
     fink_max_messages: int = 200,
     fink_timeout_s: float = 30.0,
+    fink_offset_reset: str = "latest",
 ) -> PipelineRunStats:
     """Run one ingest → gate cycle end-to-end.
 
@@ -148,6 +149,7 @@ def run_once(
             topic=fink_topic,
             group_id=fink_group_id,
             config_path=fink_config_path,
+            offset_reset=fink_offset_reset,
         )
         logger.info("Fink consumer mode=%s topic=%s", fink.mode, fink_topic)
 

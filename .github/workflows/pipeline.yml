@@ -43,6 +43,14 @@ on:
         description: "Max Fink alerts to consume in this run"
         required: false
         default: "200"
+      replay:
+        description: "Replay-from-earliest (uses a fresh consumer group + offset=earliest to drain Fink's Kafka retention window). Use once to catch up after credentials land or a pause."
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 # Only one pipeline run at a time. The data-branch push needs serialisation.
 concurrency:
@@ -195,6 +203,12 @@ jobs:
 
       # 10 — Run the pipeline. find_orb resolves via PATH; FINDORB_DIR makes
       #      its scratch dir explicit so we can ignore it in commits.
+      #      When the operator runs the workflow manually with replay=true,
+      #      use a unique consumer group_id + offset=earliest so Kafka
+      #      replays whatever is still in Fink's retention window (~7 days).
+      #      This is the "catch up from yesterday" affordance — after a
+      #      credentials delay or a pause, one manual run with replay=true
+      #      backfills the DB; scheduled runs go back to normal.
       - name: Run pipeline
         env:
           FINDORB_PATH: /usr/local/bin/fo
@@ -206,11 +220,34 @@ jobs:
           mkdir -p "$FINDORB_DIR"
           since_days="${{ github.event.inputs.since_days || '1' }}"
           max_messages="${{ github.event.inputs.max_messages || '200' }}"
+          replay="${{ github.event.inputs.replay || 'false' }}"
+
+          if [ "$replay" = "true" ]; then
+            # Fresh group_id = Kafka assigns the subscribed partitions to a
+            # new consumer with no committed offset, so auto.offset.reset
+            # kicks in and pulls from the start of retention.
+            group_id="rubin-hunter-replay-${GITHUB_RUN_ID}"
+            offset_reset="earliest"
+            # Replay can pull a lot of history — bump both caps so we drain
+            # the retention window in one go instead of dribbling.
+            [ "$max_messages" = "200" ] && max_messages="5000"
+            timeout_s="300"
+            echo "::notice::Replay mode: group_id=$group_id, "\
+              "offset_reset=earliest, max_messages=$max_messages, "\
+              "timeout=$timeout_s s"
+          else
+            group_id="rubin-hunter-personal"
+            offset_reset="latest"
+            timeout_s="60"
+          fi
+
           python scripts/run_live_pipeline.py \
             --ingest "$INGEST_MODE" \
             --since-days "$since_days" \
+            --fink-group-id "$group_id" \
+            --fink-offset-reset "$offset_reset" \
             --fink-max-messages "$max_messages" \
-            --fink-timeout-s 60 \
+            --fink-timeout-s "$timeout_s" \
             --log-level INFO
 
       # 11 — Push the updated data/ tree to the orphan `data` branch.
