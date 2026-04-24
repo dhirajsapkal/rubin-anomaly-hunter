@@ -114,34 +114,40 @@ def _lede_html(summary: dict) -> str:
     alerts = int(summary.get("alerts_ingested_last") or 0)
     n_flagged = int(summary.get("new_total") or 0)
 
+    if alerts == 0:
+        # Zero-alerts state: the pipeline hasn't ingested any alerts in the
+        # most-recent observing-night window. Usually means the live-pipeline
+        # cron is between Fink polls or Rubin wasn't on-sky. Don't invent
+        # "Most are known asteroids" copy when there's nothing to describe.
+        return (
+            "The pipeline hasn't ingested any alerts for this night yet. "
+            "The next scheduled cron tick will pull a fresh batch from Fink."
+        )
+
     if alerts >= 100_000:
         alerts_phrase = f"~{alerts // 1000}k"
-    elif alerts > 0:
-        alerts_phrase = f"{alerts:,}"
+    elif alerts >= 10_000:
+        alerts_phrase = f"~{alerts // 1000}k"
     else:
-        alerts_phrase = "no"
+        alerts_phrase = f"{alerts:,}"
 
     if n_flagged == 0:
-        weird_phrase = "nothing looks weird tonight."
+        weird_phrase = "Nothing looks weird enough to watch."
     elif n_flagged == 1:
-        weird_phrase = '<span class="hl-amber">One</span> looks weird enough to watch.'
+        weird_phrase = (
+            '<span class="hl-amber">One</span> looks weird enough to watch.'
+        )
     else:
         weird_phrase = (
             f'<span class="hl-amber">{n_flagged}</span> look weird '
             "enough to watch."
         )
 
-    verb = "imaged" if alerts > 0 else "hasn't imaged"
-    alerts_span = (
-        f'<span class="hl-amber">{alerts_phrase}</span>' if alerts > 0 else alerts_phrase
+    return (
+        "Rubin imaged "
+        f'<span class="hl-amber">{alerts_phrase}</span> objects tonight. '
+        f"Most are known asteroids. {weird_phrase}"
     )
-    objects_noun = "objects tonight" if alerts > 0 else "yet"
-    lede_sentence = (
-        f"Rubin {verb} {alerts_span} {objects_noun}. "
-        "Most are known asteroids. "
-        f"{weird_phrase}"
-    )
-    return lede_sentence
 
 
 lede_html = _lede_html(summary)
