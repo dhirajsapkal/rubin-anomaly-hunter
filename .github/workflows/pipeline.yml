@@ -135,7 +135,7 @@ jobs:
             make -C "$dir" "$target" -j"$(nproc)"
             sudo make -C "$dir" install
           }
-          build_lib lunar    https://github.com/Bill-Gray/lunar    lunar
+          build_lib lunar    https://github.com/Bill-Gray/lunar    all
           build_lib jpl_eph  https://github.com/Bill-Gray/jpl_eph  all
           build_lib sat_code https://github.com/Bill-Gray/sat_code all
           # find_orb itself: build, then symlink fo into /usr/local/bin so

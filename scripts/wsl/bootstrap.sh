@@ -83,7 +83,7 @@ build_bill_gray_lib() {
 }
 
 section "Building lunar (Bill Gray)"
-build_bill_gray_lib "lunar"   "https://github.com/Bill-Gray/lunar"   "lunar"   "install"
+build_bill_gray_lib "lunar"   "https://github.com/Bill-Gray/lunar"   "all"     "install"
 
 section "Building jpl_eph"
 build_bill_gray_lib "jpl_eph" "https://github.com/Bill-Gray/jpl_eph" "all"     "install"
