@@ -8,3 +8,4 @@
 streamlit>=1.33
 numpy>=1.26
 requests>=2.31    # used by lib/db.py to rehydrate live.sqlite from the data branch
+matplotlib>=3.8   # Mollweide sky map, cadence bar, strip plots (dashboard/lib/skymap.py, cadence.py, strip_plot.py) render as "matplotlib missing" placeholders without it
