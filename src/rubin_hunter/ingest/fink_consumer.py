@@ -191,6 +191,16 @@ class FinkConsumer:
         # own docstring claims. Ship both to survive future churn.
         config["group.id"] = self.group_id
         config["group_id"] = self.group_id
+        # Fink's LSST livestream is documented to use `password: null` in
+        # the YAML (username-only SASL for public topics). But fink-client
+        # v11 passes that None straight to confluent-kafka's
+        # sasl.password, which is rejected with `_INVALID_ARG:
+        # sasl.username and sasl.password must be set`. Normalizing None
+        # → "" (empty string) satisfies confluent-kafka's non-None check
+        # while preserving the "no password" intent — Fink's broker
+        # accepts this handshake on public topics.
+        if config.get("password") is None:
+            config["password"] = ""
         # Note: fink-client v11's _get_kafka_config hardcodes
         # auto.offset.reset=earliest and overwrites whatever we set
         # here. We still pass the value for forward compatibility —
