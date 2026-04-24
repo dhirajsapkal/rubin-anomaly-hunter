@@ -131,10 +131,14 @@ jobs:
 
       # 6 — Build the stack if the cache missed. Mirrors scripts/wsl/bootstrap.sh.
       #     Order matters: lunar → jpl_eph → sat_code → find_orb.
+      #     Wipe $SRC_ROOT first — when restore-keys fires (prior cache
+      #     prefix match, but not an exact key hit), the restored source
+      #     trees collide with `git clone` below.
       - name: Build find_orb stack (cache miss)
         if: steps.fo_cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
+          rm -rf "$SRC_ROOT"
           mkdir -p "$SRC_ROOT"
           # Bill Gray's Makefiles default to PREFIX=~ (per-user install).
           # GLOBAL=1 redirects both the -I/-L flags during compile and the
