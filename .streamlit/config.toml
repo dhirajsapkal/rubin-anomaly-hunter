@@ -17,5 +17,11 @@ runOnSave = false
 enableCORS = true
 enableXsrfProtection = true
 
+[client]
+# Temporary while debugging the Streamlit Cloud cold-start path; surfaces
+# the real exception message in the browser so we can see SQLite errors
+# unredacted. Revert to the default (false) once the deploy is stable.
+showErrorDetails = true
+
 [browser]
 gatherUsageStats = false
