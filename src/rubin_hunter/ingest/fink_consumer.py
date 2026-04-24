@@ -186,15 +186,20 @@ class FinkConsumer:
 
         with self.config_path.open("r", encoding="utf-8") as fh:  # type: ignore[union-attr]
             config = yaml.safe_load(fh) or {}
+        # fink-client v11 reads config["group.id"] (Kafka-native dotted
+        # key) inside _get_kafka_config, NOT config["group_id"] as its
+        # own docstring claims. Ship both to survive future churn.
+        config["group.id"] = self.group_id
         config["group_id"] = self.group_id
-        # auto.offset.reset is passed through to confluent-kafka. Applies
-        # only when the (group_id, topic, partition) tuple has no
-        # committed offset — e.g. a fresh replay group_id.
+        # Note: fink-client v11's _get_kafka_config hardcodes
+        # auto.offset.reset=earliest and overwrites whatever we set
+        # here. We still pass the value for forward compatibility —
+        # when v11 stops forcing earliest, our offset_reset plumbing
+        # will start taking effect again. For now the replay-mode
+        # group_id (fresh = no committed offset → applies earliest)
+        # is what carries the weight.
         config["auto.offset.reset"] = self.offset_reset
-        # fink-client takes a list of topics. Since v11 `survey` is a
-        # required positional — passing it wrong (or omitting it) silently
-        # falls back to offline mode, which looks like "zero alerts
-        # tonight" and hides the real failure. See commit that fixed this.
+        # fink-client v11 requires `survey` as a positional arg.
         return _FinkAlertConsumer(
             topics=[self.topic],
             config=config,
