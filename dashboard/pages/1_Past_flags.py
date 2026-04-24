@@ -1,9 +1,8 @@
-"""Ledger — append-only history of every decision ever made.
+"""Past flags — history of every flag you've accepted, deferred, or rejected.
 
-This is the former `Archive` page (renamed per ADR-0014 to reinforce the
-append-only, git-tracked framing). Filterable by kind, decision type,
-and free text over notes. Clicking a row opens the historical entry in
-the Tonight canvas in read-only mode (status is terminal).
+Renamed from "Ledger" per ADR-0018's hobbyist-first reframe. Functionally
+identical: filterable audit trail of decisions, clickable to re-open the
+historical entry in the Tonight canvas (read-only).
 """
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ from lib.theme import (
 
 
 st.set_page_config(
-    page_title="Rubin Anomaly Hunter — Ledger",
+    page_title="Rubin Anomaly Hunter — Past flags",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -38,14 +37,15 @@ summary = db.tonight_summary(conn)
 ds_info = db.data_source_info(conn)
 
 # Top nav with provenance chips
-st.html(top_nav("Ledger", provenance=provenance_chips_for(ds_info)))
+st.html(top_nav("Past flags", provenance=provenance_chips_for(ds_info)))
 
 # Page title + subhead
 now_iso = dt.datetime.now().strftime("%a %Y-%m-%d · %H:%M")
 st.html(
     '<header class="page-head">'
-    '<h1 class="page-head__title">Ledger</h1>'
-    f'<p class="page-head__meta mono-sm">{_html.escape(now_iso)}  ·  append-only  ·  git-tracked</p>'
+    '<h1 class="page-head__title">Past flags</h1>'
+    f'<p class="page-head__meta mono-sm">{_html.escape(now_iso)}  ·  '
+    'every decision you\'ve made on a watch-list entry</p>'
     '</header>'
 )
 

@@ -2029,4 +2029,634 @@ a.wle-row:hover .wle-row__whatsweird {
 .u-tertiary { color: var(--text-tertiary); }
 
 
+/* ============================================================
+   29. Hobbyist-first reframe (ADR-0018)
+   ------------------------------------------------------------
+   Adds the Panel 1 / Panel 2 / Panel 3 surface classes that
+   translate the old science-dashboard chrome into plain-English
+   affordances without changing the master-detail structure.
+   ============================================================ */
+
+/* Numbered section rail — "01 · TONIGHT", "02 · WATCH LIST" */
+.panel-section-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--fs-micro);
+  letter-spacing: 0.22em;
+  color: var(--signal);
+  text-transform: uppercase;
+  margin: var(--sp-6) 0 var(--sp-4);
+}
+.panel-section-label::before {
+  content: "";
+  width: 24px;
+  height: 1px;
+  background: var(--signal);
+  display: block;
+}
+
+/* Panel 1 hero lede — adjusted weight + color anchors */
+.rh-lede .hl-amber { color: var(--signal); font-weight: 500; }
+
+/* Hero row: sky map (2/3) + explainer card (1/3) — replaces the
+   old vertical sky-map + cadence-bar stack on Tonight. */
+.hero-row {
+  display: flex;
+  flex-direction: row;
+  gap: var(--sp-5);
+  align-items: stretch;
+  margin-bottom: var(--sp-6);
+}
+.hero-row > .sky-map {
+  flex: 2;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  background: var(--bg-deep);
+  padding: var(--sp-5) var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.hero-row > .sky-map .sky-map__caption {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+.hero-row .sky-map__legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.hero-row .sky-map__legend-left {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: var(--fs-body);
+  color: var(--text-primary);
+}
+.hero-row .sky-map__legend-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.hero-row .sky-map__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+.hero-row .sky-map__legend-item .dot-known {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-tertiary);
+}
+.hero-row .sky-map__legend-item .dot-flagged {
+  width: 8px; height: 8px; border-radius: 50%;
+  border: 1.5px solid var(--signal);
+  background: transparent;
+}
+.hero-row .sky-map__legend-item--flagged { color: var(--signal); }
+
+/* Explainer card — "What's worth knowing" */
+.explainer-card {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  background: var(--bg-deep);
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.explainer-card__eyebrow {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+.explainer-card__title {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: var(--fs-display-md);
+  line-height: 1.4;
+  color: var(--text-primary);
+  letter-spacing: -0.005em;
+}
+.explainer-card__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.explainer-card__item {
+  display: flex;
+  gap: var(--sp-3);
+}
+.explainer-card__item-rule {
+  flex-shrink: 0;
+  width: 2px;
+  background: var(--border-default);
+  border-radius: 1px;
+}
+.explainer-card__item--lead .explainer-card__item-rule { background: var(--signal); }
+.explainer-card__item p {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: var(--fs-body);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0;
+}
+.explainer-card__item p strong { color: var(--text-primary); font-weight: 500; }
+.explainer-card__item .t-darkcomet { color: var(--kind-dark-comet); }
+.explainer-card__item .t-iso { color: var(--kind-iso); }
+
+/* Canvas header stat strip — replaces the old "n det · n nights · arc h"
+   mono line with a three-stat labeled block. */
+.canvas-stats {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  padding-top: var(--sp-2);
+  flex-wrap: wrap;
+}
+.canvas-stats__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.canvas-stats__label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+.canvas-stats__value {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+.canvas-stats__sep {
+  width: 1px;
+  height: 28px;
+  background: var(--border-subtle);
+}
+
+/* Canvas hero — category tag, hero sentence, and entry ID */
+.canvas-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+.canvas-hero__chipline {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.canvas-hero__kind {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--fs-micro);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.canvas-hero__kind--darkcomet { color: var(--kind-dark-comet); }
+.canvas-hero__kind--iso { color: var(--kind-iso); }
+.canvas-hero__dot {
+  width: 3px; height: 3px; border-radius: 50%;
+  background: var(--text-tertiary);
+}
+.canvas-hero__chipmeta {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+}
+.canvas-hero__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+.canvas-hero__title {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: var(--fs-display-xl);
+  line-height: 1.25;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.canvas-hero__id {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: var(--fs-body-sm);
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* "What we saw" canvas band — side label + body paragraphs */
+.band-whatwesaw {
+  display: flex;
+  flex-direction: row;
+  gap: var(--sp-5);
+  padding: var(--sp-1) 0 var(--sp-1);
+}
+.band-whatwesaw__side {
+  display: flex;
+  flex-shrink: 0;
+  padding-top: 6px;
+  width: 20px;
+  justify-content: center;
+}
+.band-whatwesaw__side-label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+.band-whatwesaw__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  flex: 1;
+}
+.band-whatwesaw__body p {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  color: var(--text-primary);
+}
+.band-whatwesaw__body p.lead {
+  font-size: 17px;
+  line-height: 1.65;
+}
+.band-whatwesaw__body p.follow {
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.band-whatwesaw__body strong { color: var(--signal); font-weight: 500; }
+.band-whatwesaw__body .t-darkcomet { color: var(--kind-dark-comet); }
+
+/* Reporting band — Panel 3 container */
+.reporting-band {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding-top: var(--sp-5);
+  margin-top: var(--sp-4);
+}
+
+.amber-rule {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+.amber-rule__line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--signal) 0%, rgba(255,176,32,0) 100%);
+}
+.amber-rule__line--right {
+  background: linear-gradient(90deg, rgba(255,176,32,0) 0%, var(--signal) 100%);
+}
+.amber-rule__label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--fs-micro);
+  letter-spacing: 0.22em;
+  color: var(--signal);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.reporting-intro {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 780px;
+  margin: 0 0 var(--sp-3);
+}
+.reporting-intro strong { color: var(--text-primary); font-weight: 500; }
+
+.reporting-grid {
+  display: flex;
+  flex-direction: row;
+  gap: var(--sp-4);
+}
+.reporting-grid > * { flex: 1; min-width: 0; }
+
+.reporting-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+}
+.reporting-card--wide { gap: var(--sp-4); }
+.reporting-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.reporting-card__num {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--signal);
+}
+.reporting-card__title {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: var(--fs-body);
+  color: var(--text-primary);
+  letter-spacing: 0.001em;
+}
+.reporting-card__body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: var(--fs-body-sm);
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+.reporting-card__body strong { color: var(--text-primary); font-weight: 500; }
+
+.reporting-card__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.reporting-card__list li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.reporting-card__list li p {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: var(--fs-body-sm);
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+.reporting-card__list li p strong { color: var(--text-primary); font-weight: 500; }
+.bullet-dot {
+  flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  transform: translateY(-2px);
+}
+.bullet-dot--ok { background: var(--decision-accept); }
+.bullet-dot--warn { background: var(--decision-defer); }
+.bullet-dot--muted { background: var(--border-default); }
+
+/* "In plain English" inset inside a reporting card */
+.reporting-inset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--bg-deep);
+  border-left: 2px solid var(--signal);
+  border-radius: 2px;
+}
+.reporting-inset__label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--signal);
+  text-transform: uppercase;
+}
+.reporting-inset p {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: var(--fs-body-sm);
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+/* Channel rows (A./B./C. lane alignment) — Paper MCP guide §vertical-lane */
+.channel-list {
+  display: flex;
+  flex-direction: column;
+}
+.channel-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.channel-row:last-child { border-bottom: 1px solid var(--border-subtle); }
+.channel-row__letter {
+  flex-shrink: 0;
+  width: 28px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.12em;
+}
+.channel-row__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.channel-row__title {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: var(--fs-body);
+  color: var(--text-primary);
+}
+.channel-row__desc {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: var(--fs-body-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.channel-row__url {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--signal);
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--dur-base) var(--ease);
+}
+.channel-row__url:hover { color: var(--signal-soft); }
+
+/* Ephemeris bar + copy button */
+.ephemeris-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--bg-deep);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  margin-top: var(--sp-3);
+}
+.ephemeris-bar__label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+.ephemeris-bar__coords {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  background: transparent;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.ephemeris-bar__copy {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px var(--sp-4);
+  background: var(--signal);
+  color: var(--bg-black);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background var(--dur-base) var(--ease);
+}
+.ephemeris-bar__copy:hover { background: var(--signal-soft); }
+
+/* Don't-post warning card — red-tinted, sibling of Credit card */
+.dont-post-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+  background: #1A1312;
+  border: 1px solid #3A1E1A;
+  border-radius: var(--r-sm);
+  justify-content: center;
+}
+.dont-post-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--decision-reject);
+  text-transform: uppercase;
+}
+.dont-post-card__body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: var(--fs-body-sm);
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+.dont-post-card__aside {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* Plain-English gutter card — keeps the existing .gutter-item skeleton
+   but layers a human-readable kind subtitle + date on top. */
+.gutter-item__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: 6px;
+}
+.gutter-item__status {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+}
+.gutter-item.is-active .gutter-item__status { color: var(--signal); }
+.gutter-item__status--defer { color: var(--decision-defer); }
+.gutter-item__kindline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-body-sm);
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+  margin-bottom: 4px;
+}
+.gutter-item__kindline .kind-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.gutter-item__kindline .kind-dot--dark-comet { background: var(--kind-dark-comet); }
+.gutter-item__kindline .kind-dot--iso { background: var(--kind-iso); }
+.gutter-item__datestrip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+}
+
+
 /* End of theme.css — Mission-Control Modern (quiet canvas edition) */

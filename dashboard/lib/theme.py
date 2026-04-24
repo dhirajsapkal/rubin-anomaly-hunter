@@ -346,9 +346,8 @@ def mono(text: str) -> str:
 # ---- Top navigation strip (replaces the Streamlit sidebar page nav) -------
 
 _NAV_ITEMS: list[tuple[str, str]] = [
-    ("Tonight", "/"),
-    ("Ledger",  "/Ledger"),
-    ("Health",  "/Health"),
+    ("Tonight",    "/"),
+    ("Past flags", "/Past_flags"),
 ]
 
 
@@ -359,7 +358,8 @@ def top_nav(active: str, provenance: dict[str, str] | None = None) -> str:
     ----------
     active:
         Destination name that should render as the active pill. One of
-        ``"Tonight"`` | ``"Ledger"`` | ``"Health"`` (case-insensitive).
+        ``"Tonight"`` | ``"Past flags"`` (case-insensitive). Health and
+        Ledger were retired per ADR-0018.
     provenance:
         Optional mapping of label -> short value rendered as inline chips
         on the right side. Typical keys: ``"INGEST"`` (value ``"LIVE"`` or
