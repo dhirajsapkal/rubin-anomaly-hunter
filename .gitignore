@@ -47,8 +47,11 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints/
 
-# Project data (never commit science data)
-data/
+# Project data (never commit science data).
+# NB: we use `data/*` rather than `data/` so allowlist patterns below
+# actually take effect — when a directory itself is ignored, git skips
+# recursion into it and `!` rules are silently no-ops.
+data/*
 !data/.gitkeep
 !data/README.md
 runs/
@@ -58,6 +61,15 @@ archive/
 *.sqlite3
 *.parquet
 *.fits
+
+# Exception: the synthetic demo DB is a committed fallback so Streamlit
+# Cloud's cold-start has something to render when the orphan data branch
+# hasn't been published yet (or the rehydrate secret is unset). It is
+# mock data per scripts/make_demo_db.py and ADR-0009's verbatim-alert
+# rule does NOT apply — no real alerts live here.
+# This negation must come AFTER the `*.sqlite` global ignore above,
+# otherwise that rule re-ignores it.
+!data/demo.sqlite
 
 # find_orb artifacts — ADR-0008 forbids redistribution
 find_orb/

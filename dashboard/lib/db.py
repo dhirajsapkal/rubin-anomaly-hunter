@@ -32,13 +32,34 @@ def _rehydrate_once() -> RehydrateResult:
     No-op when ``RUBIN_HUNTER_REHYDRATE_URL`` isn't set (local dev). On
     Streamlit Community Cloud, configure that env var to the raw URL of
     ``data/live.sqlite`` on the orphan ``data`` branch — see ADR-0017.
+
+    Caching policy: only successful outcomes are cached for the container's
+    lifetime. A pure failure (``source == "error"`` with no existing local
+    DB) raises, which ``st.cache_resource`` does not cache — so the next
+    page load retries. Without this, a first-boot race (app container
+    spins up before GHA publishes the data branch) would leave the
+    container serving an empty-DB crash for ~24h until Streamlit Cloud
+    recycles it.
     """
-    return ensure_live_db(LIVE_DB_PATH)
+    result = ensure_live_db(LIVE_DB_PATH)
+    if result.source == "error" and not LIVE_DB_PATH.exists():
+        raise RuntimeError(f"rehydrate failed: {result.error}")
+    return result
 
 
 def rehydrate_status() -> RehydrateResult:
     """Public accessor so Health/footer can show fetch provenance."""
-    return _rehydrate_once()
+    try:
+        return _rehydrate_once()
+    except Exception as exc:  # noqa: BLE001 — we want to surface, not crash
+        return RehydrateResult(
+            source="error",
+            url=None,
+            dest=LIVE_DB_PATH,
+            bytes_written=0,
+            error=str(exc),
+            fetched_at_utc=0.0,
+        )
 
 
 def resolve_db_path() -> Path:
@@ -64,7 +85,15 @@ def resolve_db_path() -> Path:
         p = Path(env)
         if p.exists():
             return p
-    _rehydrate_once()
+    # Attempt to rehydrate live.sqlite from the data branch. If the fetch
+    # fails (first-boot race, URL unset, network blip), don't crash — fall
+    # through to the demo DB. The exception here is deliberately silenced
+    # because _rehydrate_once() raises on failure precisely so the cache
+    # doesn't stick; callers re-try on the next page render.
+    try:
+        _rehydrate_once()
+    except Exception:  # noqa: BLE001 — rehydrate is best-effort
+        pass
     if LIVE_DB_PATH.exists():
         try:
             conn = sqlite3.connect(str(LIVE_DB_PATH))
