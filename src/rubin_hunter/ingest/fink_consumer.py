@@ -99,6 +99,7 @@ class FinkConsumer:
         group_id: str,
         config_path: Path | None = None,
         offset_reset: str = "latest",
+        survey: str = "lsst",
     ) -> None:
         self.topic = topic
         self.group_id = group_id
@@ -110,6 +111,10 @@ class FinkConsumer:
         # once Kafka records a committed offset for the group, it reads
         # from there regardless.
         self.offset_reset = offset_reset
+        # fink-client >= 11 requires `survey` on AlertConsumer. Default
+        # "lsst" matches ADR-0003 (Rubin primary). A ZTF calibration
+        # rail would pass survey="ztf" via a sibling module.
+        self.survey = survey
 
         self._live_consumer: Any | None = None
         self._offline: _OfflineState | None = None
@@ -186,8 +191,15 @@ class FinkConsumer:
         # only when the (group_id, topic, partition) tuple has no
         # committed offset — e.g. a fresh replay group_id.
         config["auto.offset.reset"] = self.offset_reset
-        # fink-client takes a list of topics.
-        return _FinkAlertConsumer(topics=[self.topic], config=config)
+        # fink-client takes a list of topics. Since v11 `survey` is a
+        # required positional — passing it wrong (or omitting it) silently
+        # falls back to offline mode, which looks like "zero alerts
+        # tonight" and hides the real failure. See commit that fixed this.
+        return _FinkAlertConsumer(
+            topics=[self.topic],
+            config=config,
+            survey=self.survey,
+        )
 
     def _build_offline_state(self) -> _OfflineState:
         samples_dir = _DEFAULT_SAMPLES_DIR
