@@ -305,15 +305,21 @@ class FinkConsumer:
         assert self._live_consumer is not None  # noqa: S101
         out: list[dict[str, Any]] = []
         remaining_budget = timeout_s
-        # fink-client's consume returns (topic, alert, key) triples.
+        # fink-client v11's AlertConsumer.consume signature is
+        # `consume(num_alerts: int = 1, timeout: float = -1)` and returns a
+        # list of (topic, alert, key) tuples (one entry per message; None
+        # entries appear on per-partition timeout). This was renamed from
+        # `num_messages` in an earlier release — we keep our own
+        # `max_messages` term in our public API for clarity and translate
+        # at the call site.
         per_call_timeout = min(timeout_s, 5.0) if timeout_s > 0 else 1.0
         while len(out) < max_messages and remaining_budget > 0:
             try:
                 result = self._live_consumer.consume(
-                    num_messages=max_messages - len(out),
+                    num_alerts=max_messages - len(out),
                     timeout=per_call_timeout,
                 )
-            except Exception as exc:  # pragma: no cover - depends on env
+            except Exception as exc:
                 print(f"[fink_consumer] live poll error ({exc!r}); returning partial batch.")
                 break
             if not result:
