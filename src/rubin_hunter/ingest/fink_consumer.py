@@ -313,6 +313,16 @@ class FinkConsumer:
         # `max_messages` term in our public API for clarity and translate
         # at the call site.
         per_call_timeout = min(timeout_s, 5.0) if timeout_s > 0 else 1.0
+        # Kafka subscribe() is async — the first few consume() calls
+        # typically return [] while the group coordinator finishes
+        # partition assignment. Breaking on the first empty result (the
+        # old behavior) meant a fresh consumer group always exited with
+        # zero alerts even when messages were waiting. Instead we keep
+        # polling until the budget is exhausted, but cap consecutive
+        # empties so we don't hang the pipeline against a genuinely
+        # empty topic.
+        max_consecutive_empty = 6
+        consecutive_empty = 0
         while len(out) < max_messages and remaining_budget > 0:
             try:
                 result = self._live_consumer.consume(
@@ -322,12 +332,18 @@ class FinkConsumer:
             except Exception as exc:
                 print(f"[fink_consumer] live poll error ({exc!r}); returning partial batch.")
                 break
-            if not result:
-                break
-            for _topic, alert, _key in result:
+            remaining_budget -= per_call_timeout
+            new_count = 0
+            for _topic, alert, _key in result or []:
                 if alert is not None:
                     out.append(alert)
-            remaining_budget -= per_call_timeout
+                    new_count += 1
+            if new_count == 0:
+                consecutive_empty += 1
+                if consecutive_empty >= max_consecutive_empty:
+                    break
+            else:
+                consecutive_empty = 0
         return out
 
     def _poll_offline(self, max_messages: int) -> list[dict[str, Any]]:
