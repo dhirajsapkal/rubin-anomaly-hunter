@@ -245,6 +245,17 @@ jobs:
             timeout_s="60"
           fi
 
+          # --strict-fink: when ingest=fink, fail the workflow if the
+          # broker connect fails for any reason. Without this, an
+          # offline-fallback run produces a clean "0 alerts" pipeline_health
+          # row and the workflow stays green — which is exactly how this
+          # pipeline silently ingested zero alerts for five consecutive
+          # days after the credentials secret landed (run #24900389722
+          # onward). A red workflow surfaces the underlying error.
+          strict_args=""
+          if [ "$INGEST_MODE" = "fink" ]; then
+            strict_args="--strict-fink"
+          fi
           python scripts/run_live_pipeline.py \
             --ingest "$INGEST_MODE" \
             --since-days "$since_days" \
@@ -252,6 +263,7 @@ jobs:
             --fink-offset-reset "$offset_reset" \
             --fink-max-messages "$max_messages" \
             --fink-timeout-s "$timeout_s" \
+            $strict_args \
             --log-level INFO
 
       # 11 — Push the updated data/ tree to the orphan `data` branch.

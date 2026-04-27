@@ -86,6 +86,16 @@ def main(argv: list[str] | None = None) -> int:
         "start of Kafka's retention window — use for one-shot catch-up runs.",
     )
     parser.add_argument(
+        "--strict-fink",
+        action="store_true",
+        default=os.environ.get("RUBIN_HUNTER_FINK_STRICT", "0") == "1",
+        help="When --ingest=fink and the live broker connect fails for any "
+        "reason (missing creds, librdkafka rejection, broker auth error), "
+        "exit non-zero instead of silently falling back to offline/demo "
+        "mode. Recommended for the cloud cron workflow so a Fink outage "
+        "shows up red. Defaults to $RUBIN_HUNTER_FINK_STRICT=1 if set.",
+    )
+    parser.add_argument(
         "--log-level",
         choices=("DEBUG", "INFO", "WARNING", "ERROR"),
         default="INFO",
@@ -118,6 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         fink_max_messages=args.fink_max_messages,
         fink_timeout_s=args.fink_timeout_s,
         fink_offset_reset=args.fink_offset_reset,
+        fink_strict=args.strict_fink,
     )
 
     print(json.dumps(stats.__dict__, indent=2, default=str))

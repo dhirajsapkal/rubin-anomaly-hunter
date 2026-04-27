@@ -100,6 +100,7 @@ class FinkConsumer:
         config_path: Path | None = None,
         offset_reset: str = "latest",
         survey: str = "lsst",
+        strict: bool = False,
     ) -> None:
         self.topic = topic
         self.group_id = group_id
@@ -115,6 +116,11 @@ class FinkConsumer:
         # "lsst" matches ADR-0003 (Rubin primary). A ZTF calibration
         # rail would pass survey="ztf" via a sibling module.
         self.survey = survey
+        # When strict=True the constructor raises if live connect fails.
+        # Default False keeps the "fresh-clone runs the demo" promise; the
+        # cron workflow opts in so a Fink outage shows up red rather than
+        # silently producing a 0-alert run.
+        self.strict = strict
 
         self._live_consumer: Any | None = None
         self._offline: _OfflineState | None = None
@@ -126,15 +132,39 @@ class FinkConsumer:
     # construction helpers
     # ------------------------------------------------------------------
     def _initialise(self) -> None:
-        if self._credentials_available() and _FINK_AVAILABLE:
+        creds_present = self._credentials_available()
+        if creds_present and _FINK_AVAILABLE:
             try:
                 self._live_consumer = self._build_live_consumer()
                 self._mode = "live"
                 return
-            except Exception as exc:  # pragma: no cover - depends on env
-                print(
+            except Exception as exc:
+                msg = (
                     f"[fink_consumer] live connect failed ({exc!r}); "
                     "falling back to offline/demo mode."
+                )
+                if self.strict:
+                    # Surface the underlying exception unchanged so logs
+                    # show the librdkafka / broker error verbatim.
+                    raise RuntimeError(
+                        f"FinkConsumer strict mode: live connect failed for "
+                        f"topic={self.topic!r} config={self.config_path}: {exc!r}"
+                    ) from exc
+                print(msg)
+        elif self.strict:
+            # Strict mode + missing prerequisites = fail fast. The operator
+            # asked for live data; producing a 0-alert "success" would hide
+            # the configuration error.
+            if not _FINK_AVAILABLE:
+                raise RuntimeError(
+                    "FinkConsumer strict mode: fink-client is not installed. "
+                    "Install the 'ingest' extra (pip install -e '.[ingest]')."
+                )
+            if not creds_present:
+                raise RuntimeError(
+                    "FinkConsumer strict mode: no Fink credentials file found. "
+                    "Set FINK_CLIENT_CONFIG or place a YAML at "
+                    "~/.finkclient/credentials.yml (or pass config_path=)."
                 )
 
         # Fall back to offline mode.
@@ -146,7 +176,7 @@ class FinkConsumer:
                 "[fink_consumer] fink-client not installed — running in "
                 "offline/demo mode. Install the 'ingest' extra for live access."
             )
-        elif not self._credentials_available():
+        elif not creds_present:
             print(
                 "[fink_consumer] no credentials file found — running in "
                 "offline/demo mode. Set config_path to a Fink YAML to go live."
@@ -191,16 +221,35 @@ class FinkConsumer:
         # own docstring claims. Ship both to survive future churn.
         config["group.id"] = self.group_id
         config["group_id"] = self.group_id
-        # Fink's LSST livestream is documented to use `password: null` in
-        # the YAML (username-only SASL for public topics). But fink-client
-        # v11 passes that None straight to confluent-kafka's
-        # sasl.password, which is rejected with `_INVALID_ARG:
-        # sasl.username and sasl.password must be set`. Normalizing None
-        # → "" (empty string) satisfies confluent-kafka's non-None check
-        # while preserving the "no password" intent — Fink's broker
-        # accepts this handshake on public topics.
-        if config.get("password") is None:
-            config["password"] = ""
+        # SASL handling. fink-client v11's _get_kafka_config enables
+        # security.protocol=sasl_plaintext + SCRAM-SHA-512 iff *both*
+        # "username" and "password" keys are present in the config dict.
+        # If either is missing it ships a plaintext config.
+        #
+        # Fink registration (`fink_client_register`) writes
+        # `password: null` for the LSST public livestream when the user
+        # was issued no password. yaml.safe_load decodes that to Python
+        # None, fink-client passes None straight to confluent-kafka's
+        # sasl.password, and librdkafka rejects it locally with
+        # _INVALID_ARG before any broker handshake happens. An earlier
+        # attempt normalized None→"" but librdkafka treats empty strings
+        # the same way — it's an empty-string check, not a None check.
+        #
+        # The right answer: when password is null/empty, drop both keys
+        # so fink-client doesn't enable SASL at all and the client
+        # connects in plaintext. The broker then decides whether to
+        # accept (anonymous public topic) or reject (will surface as a
+        # broker auth error, which is much more diagnostic than the
+        # local librdkafka rejection). When the operator has a real
+        # password the keys pass through unchanged and SASL works.
+        pw = config.get("password")
+        if pw is None or pw == "":
+            config.pop("password", None)
+            # fink-client requires both keys for SASL — dropping just
+            # password would leave a stray username key in the dict
+            # that goes nowhere. Drop both and let the broker reject if
+            # SASL is actually mandatory.
+            config.pop("username", None)
         # Note: fink-client v11's _get_kafka_config hardcodes
         # auto.offset.reset=earliest and overwrites whatever we set
         # here. We still pass the value for forward compatibility —
