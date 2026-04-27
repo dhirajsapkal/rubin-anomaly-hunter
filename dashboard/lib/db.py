@@ -25,25 +25,37 @@ DEMO_DB_PATH = _DATA_DIR / "demo.sqlite"
 LIVE_DB_PATH = _DATA_DIR / "live.sqlite"
 
 
-@st.cache_resource(show_spinner="Fetching latest pipeline state…")
+@st.cache_resource(show_spinner="Fetching latest pipeline state…", ttl=300)
 def _rehydrate_once() -> RehydrateResult:
-    """Pull live.sqlite from the data branch once per Streamlit container.
+    """Pull live.sqlite from the data branch — re-fetched every 5 minutes.
 
     No-op when ``RUBIN_HUNTER_REHYDRATE_URL`` isn't set (local dev). On
     Streamlit Community Cloud, configure that env var to the raw URL of
     ``data/live.sqlite`` on the orphan ``data`` branch — see ADR-0017.
 
-    Caching policy: only successful outcomes are cached for the container's
-    lifetime. A pure failure (``source == "error"`` with no existing local
-    DB) raises, which ``st.cache_resource`` does not cache — so the next
-    page load retries. Without this, a first-boot race (app container
-    spins up before GHA publishes the data branch) would leave the
-    container serving an empty-DB crash for ~24h until Streamlit Cloud
-    recycles it.
+    Caching policy: ``ttl=300`` (5 minutes). Without a TTL, a Streamlit
+    Cloud container that boots before the pipeline first publishes data
+    will cache an empty/error result and serve it until the container
+    recycles (~24 h). The pipeline runs every 4 h, so 5 min × at-most-48
+    re-fetches per cron tick is the right cost/freshness trade — and the
+    underlying ``If-Modified-Since`` header makes the no-change case a
+    cheap 304.
+
+    A pure failure (``source == "error"`` with no existing local DB)
+    raises, which ``st.cache_resource`` does not cache — so the next
+    page load retries.
     """
     result = ensure_live_db(LIVE_DB_PATH)
     if result.source == "error" and not LIVE_DB_PATH.exists():
         raise RuntimeError(f"rehydrate failed: {result.error}")
+    if result.source == "remote-fresh":
+        # We just replaced live.sqlite on disk via atomic rename. Any
+        # SQLite connection cached by `get_connection` is still pointing
+        # at the old inode (the OS keeps it alive until close), so the
+        # dashboard would keep reading the previous DB until the
+        # connection cache turns over. Clear it now so the next query
+        # opens a fresh connection against the new file.
+        get_connection.clear()
     return result
 
 
@@ -113,9 +125,19 @@ def resolve_db_path() -> Path:
     return DEMO_DB_PATH
 
 
-@st.cache_resource(show_spinner=False)
+@st.cache_resource(show_spinner=False, ttl=120)
 def get_connection(db_path: str | Path | None = None) -> sqlite3.Connection:
-    """Cached SQLite connection. Defaults to :func:`resolve_db_path`."""
+    """Cached SQLite connection. Defaults to :func:`resolve_db_path`.
+
+    ``ttl=120`` ensures we open a new connection at least every 2 minutes
+    — important on Streamlit Cloud where ``_rehydrate_once`` may replace
+    ``live.sqlite`` underneath us (atomic rename leaves the prior inode
+    intact for any open connection). Without the TTL, a long-lived
+    container would keep reading the original file even after the data
+    branch has been refreshed. ``_rehydrate_once`` also calls
+    ``get_connection.clear()`` on every fresh fetch for an immediate
+    invalidation, but the TTL is the safety net.
+    """
     p = Path(db_path) if db_path is not None else resolve_db_path()
     conn = sqlite3.connect(str(p), check_same_thread=False)
     conn.row_factory = sqlite3.Row
