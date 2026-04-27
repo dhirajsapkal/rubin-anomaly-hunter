@@ -221,6 +221,18 @@ class FinkConsumer:
         # own docstring claims. Ship both to survive future churn.
         config["group.id"] = self.group_id
         config["group_id"] = self.group_id
+        # Bridge `servers` → `bootstrap.servers`. fink_client_register
+        # writes the YAML with key `servers` (its CLI flag name) but
+        # fink-client v11's _get_kafka_config only honors the Kafka-
+        # native dotted key `bootstrap.servers`. When the dotted key
+        # is missing it silently falls back to localhost:9093,9094,9095
+        # — which on a CI runner is nothing, so the consumer happily
+        # constructs, hits "Connection refused" against localhost, and
+        # never reads any messages from the real broker. Set both keys
+        # so we survive whichever one fink-client decides to read in
+        # any given release.
+        if "bootstrap.servers" not in config and config.get("servers"):
+            config["bootstrap.servers"] = config["servers"]
         # SASL handling. fink-client v11's _get_kafka_config enables
         # security.protocol=sasl_plaintext + SCRAM-SHA-512 iff *both*
         # "username" and "password" keys are present in the config dict.
