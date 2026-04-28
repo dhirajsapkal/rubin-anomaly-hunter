@@ -197,7 +197,13 @@ def tonight_summary(conn: sqlite3.Connection) -> dict[str, Any]:
     """Counts + delta for the Tonight home page.
 
     Returns a dict with: new_total, new_dark_comet, new_iso, alerts_ingested_last,
-    tracklets_linked_last, last_night, promoted_recent, window_state, config_tag.
+    tracklets_linked_last, last_night, promoted_recent, window_state, config_tag,
+    total_detections, total_tracklets, total_health_rows.
+
+    Cumulative totals matter because the dashboard's lede shouldn't read as
+    "no alerts tonight" just because the most recent 4-hour cron window
+    happened to be quiet — when the DB has accumulated thousands of
+    detections from earlier nights, that's the load-bearing story.
     """
     new_rows = conn.execute(
         "SELECT category, COUNT(*) AS n FROM watch_list "
@@ -214,6 +220,18 @@ def tonight_summary(conn: sqlite3.Connection) -> dict[str, Any]:
         "AND created_utc >= datetime('now', '-14 days')"
     ).fetchone()["n"]
 
+    # Cumulative totals across the whole DB. Used by the lede when the
+    # most recent obs_night row is empty.
+    total_detections = conn.execute(
+        "SELECT COUNT(*) FROM detections"
+    ).fetchone()[0]
+    total_tracklets = conn.execute(
+        "SELECT COUNT(*) FROM tracklets"
+    ).fetchone()[0]
+    total_health_rows = conn.execute(
+        "SELECT COUNT(*) FROM pipeline_health"
+    ).fetchone()[0]
+
     thr = conn.execute(
         "SELECT config_tag, locked FROM threshold_versions "
         "ORDER BY version_id DESC LIMIT 1"
@@ -229,6 +247,9 @@ def tonight_summary(conn: sqlite3.Connection) -> dict[str, Any]:
         "tracklets_linked_last": last_health["tracklets_linked"] if last_health else 0,
         "last_night": last_health["obs_night"] if last_health else None,
         "promoted_recent": promoted_recent,
+        "total_detections": int(total_detections or 0),
+        "total_tracklets": int(total_tracklets or 0),
+        "total_health_rows": int(total_health_rows or 0),
         "window_state": window_state,
         "config_tag": config_tag,
     }

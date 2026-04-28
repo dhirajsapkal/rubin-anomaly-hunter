@@ -111,42 +111,65 @@ st.html('<div class="panel-section-label">01 · Tonight</div>')
 # ---- Plain-English lede --------------------------------------------------
 
 def _lede_html(summary: dict) -> str:
-    alerts = int(summary.get("alerts_ingested_last") or 0)
+    alerts_tonight = int(summary.get("alerts_ingested_last") or 0)
     n_flagged = int(summary.get("new_total") or 0)
+    total_detections = int(summary.get("total_detections") or 0)
+    total_tracklets = int(summary.get("total_tracklets") or 0)
+    nights_run = int(summary.get("total_health_rows") or 0)
 
-    if alerts == 0:
-        # Zero-alerts state: the pipeline hasn't ingested any alerts in the
-        # most-recent observing-night window. Usually means the live-pipeline
-        # cron is between Fink polls or Rubin wasn't on-sky. Don't invent
-        # "Most are known asteroids" copy when there's nothing to describe.
+    def _humanize_count(n: int) -> str:
+        if n >= 1_000_000:
+            return f"~{n // 100_000 / 10:.1f}M".replace(".0M", "M")
+        if n >= 100_000:
+            return f"~{n // 1_000}k"
+        if n >= 10_000:
+            return f"~{n // 1_000}k"
+        if n >= 1_000:
+            return f"~{n // 100 / 10:.1f}k".replace(".0k", "k")
+        return f"{n:,}"
+
+    def _weird_clause(n: int) -> str:
+        if n == 0:
+            return "Nothing flagged so far."
+        if n == 1:
+            return '<span class="hl-amber">One</span> looks weird enough to watch.'
         return (
-            "The pipeline hasn't ingested any alerts for this night yet. "
-            "The next scheduled cron tick will pull a fresh batch from Fink."
+            f'<span class="hl-amber">{n}</span> look weird enough to watch.'
         )
 
-    if alerts >= 100_000:
-        alerts_phrase = f"~{alerts // 1000}k"
-    elif alerts >= 10_000:
-        alerts_phrase = f"~{alerts // 1000}k"
-    else:
-        alerts_phrase = f"{alerts:,}"
+    # Three states, ranked by what's most useful to surface:
+    # 1. Tonight's batch was loud — describe tonight + flagged.
+    # 2. Tonight's batch was quiet but the DB has accumulated history —
+    #    describe the cumulative state ("seen so far") so the user
+    #    doesn't get a false "nothing happening" read.
+    # 3. The DB is genuinely empty — first-boot state.
 
-    if n_flagged == 0:
-        weird_phrase = "Nothing looks weird enough to watch."
-    elif n_flagged == 1:
-        weird_phrase = (
-            '<span class="hl-amber">One</span> looks weird enough to watch.'
+    if alerts_tonight > 0:
+        return (
+            "Rubin imaged "
+            f'<span class="hl-amber">{_humanize_count(alerts_tonight)}</span> '
+            "objects tonight. Most are known asteroids. "
+            f"{_weird_clause(n_flagged)}"
         )
-    else:
-        weird_phrase = (
-            f'<span class="hl-amber">{n_flagged}</span> look weird '
-            "enough to watch."
+
+    if total_detections > 0:
+        nights_phrase = (
+            f"{nights_run} night{'s' if nights_run != 1 else ''}"
+            if nights_run else "the run so far"
+        )
+        return (
+            "Tonight's poll window was quiet — Rubin didn't drop any new "
+            "Solar System alerts in the last cron tick. Across "
+            f"{nights_phrase}, the pipeline has seen "
+            f'<span class="hl-amber">{_humanize_count(total_detections)}</span> '
+            "detections and linked "
+            f'<span class="hl-amber">{_humanize_count(total_tracklets)}</span> '
+            f"tracklets. {_weird_clause(n_flagged)}"
         )
 
     return (
-        "Rubin imaged "
-        f'<span class="hl-amber">{alerts_phrase}</span> objects tonight. '
-        f"Most are known asteroids. {weird_phrase}"
+        "The pipeline hasn't ingested any alerts yet. "
+        "The next scheduled cron tick will pull a fresh batch from Fink."
     )
 
 
