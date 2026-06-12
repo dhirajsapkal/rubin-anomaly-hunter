@@ -36,6 +36,7 @@ dashboard = [
     "streamlit>=1.33",
     "streamlit-extras>=0.4",
     "pillow>=10.2",
+    "requests>=2.31",
 ]
 anomaly = [
     "coniferest>=0.0.11",
